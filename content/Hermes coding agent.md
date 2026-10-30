@@ -19,7 +19,32 @@ Add a tool to the langgraph analyst that reads the latest values of a macro seri
 macro.csv, cut at the reporting date. Run 2025-01-31 and tell me if the analyst used it.
 ```
 
-Hermes already knows where tools go, that data must be cut at the reporting date, how to run a date, and that the shared Python environment must not be touched. It knows because of a few files that are loaded into it before you type anything. This note explains those files, the skills, and the commands you'll use.
+Hermes already knows where tools go, that data must be cut at the reporting date, how to run a date, and that the shared Python environment must not be touched. It knows because of a few files that are loaded into it before you type anything. This note explains how to start it, those files, the skills, and the commands you'll use.
+
+## Starting Hermes
+
+1. **Open a terminal** in JupyterLab: *File → New → Terminal*, or the *Terminal* tile in the Launcher.
+2. **Go to the template folder:** `cd langgraph-template`
+3. **Start Hermes:** `hermes`
+
+![[hermes-start-terminal.png]]
+
+Starting it *inside* `langgraph-template` matters: that's how Hermes finds the project's `.hermes.md` (next section).
+
+Hermes opens with a welcome screen:
+
+![[hermes-welcome.png]]
+
+What it shows:
+- **Available Tools**: what Hermes can do by itself, such as reading and writing files (`file`), running code (`code_execution`), or browsing (`browser`).
+- **Available Skills**: the workspace skills it can open when a task needs them (see *Skills* below).
+- **Bottom left**: the model it's using, the folder it started in (check it says `/home/jovyan/langgraph-template`), and the session id.
+- **The status bar** above the prompt: the current model, how full the context is, and how long the last turn took.
+- **The prompt** (`❯`) at the bottom: type your request here, or a `/command`.
+
+**First thing to check: the model.** If the welcome screen shows a weak model, switch to a strong tool caller before you start, e.g. `/model openai/gpt-oss-120b` (as in the screenshot, where it was switched to `openai/gpt-oss-20b`). The switch lasts for this session; add `--global` to keep it.
+
+To leave Hermes, type `/quit` (or press `Ctrl+D` on an empty prompt). To pick up where you left off later, run `hermes -c` in the same folder.
 
 ## What Hermes knows
 

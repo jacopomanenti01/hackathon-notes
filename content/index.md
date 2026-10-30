@@ -15,9 +15,18 @@ Every note in the vault, by topic. Decks are in `Slides/`.
 - [[What is a tool]] — describe → model asks → your code runs → result back; regardless of framework
 
 ## LangGraph
-- [[Tools in LangGraph]] — the model asks, a `ToolNode` runs; schema-as-tool for structured answers
+Folder `LangGraph/`. Every step is a node you draw; suggested reading order:
+- [[Workflow in LangGraph]] — the whole run as a graph: nodes, edges, `compile`
+- [[State in LangGraph]] — one shared dictionary; replace vs reducers (`add_messages`)
+- [[Agents in LangGraph]] — hand-written LLM nodes: `ask_for_text`, `ask_for_answer`
+- [[The agent loop in LangGraph]] — `analyst ⇄ tools`, drawn in the graph; how it stops
+- [[Tools in LangGraph]] — `bind_tools` + `ToolNode`; hidden date; `tool_error`; adding your own
+- [[Schemas in LangGraph]] — forms the model fills in; the correction loop
+- [[Branches in LangGraph]] — routers and conditional edges: `risk_review` → `rebalance`
+- [[Errors and retries in LangGraph]] — four things that go wrong and the guard for each
 
 ## LangChain
+Folder `LangChain/`. `create_agent` runs the loop for you.
 - [[Agents in LangChain]] — what an agent is; the parts of `create_agent`; running it from a node
 - [[Tools in LangChain]] — `@tool` + `tools=[...]`: what the model sees, who runs it, adding your own
 - [[The agent loop in LangChain]] — the `model` ⇄ `tools` graph inside `create_agent`; when it ends
@@ -27,5 +36,3 @@ Every note in the vault, by topic. Decks are in `Slides/`.
 - [[Schemas in LangChain]] — instruction + check: tool inputs, agent outputs, runtime context
 - [[State in LangChain]] — the graph's state vs each agent's state; return only what changes
 - [[Workflow in LangChain]] — three agents in a line; `StateGraph` → nodes → edges → compile
-
-## General

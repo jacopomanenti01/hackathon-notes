@@ -51,14 +51,14 @@ The template works end to end, but each part is a starting point for teams to im
 
 ## Where each part is explained
 
-| Part of the task | LangChain notes |
-|---|---|
-| an agent, and the analyst's run in detail | [[Agents in LangChain]], [[The agent loop in LangChain]] |
-| the analyst fetching data | [[What is a tool]], [[Tools in LangChain]], [[Skills in LangChain]] |
-| signals and weights in a fixed form | [[Schemas in LangChain]] |
-| the risk check, limits, the date in the prompt | [[Middleware in LangChain]], [[Hooks in LangChain]] |
-| passing results from one agent to the next | [[State in LangChain]] |
-| the order: analyst → portfolio manager → risk | [[Workflow in LangChain]] |
+| Part of the task | LangChain notes | LangGraph notes |
+|---|---|---|
+| an agent, and the analyst's run in detail | [[Agents in LangChain]], [[The agent loop in LangChain]] | [[Agents in LangGraph]], [[The agent loop in LangGraph]] |
+| the analyst fetching data | [[What is a tool]], [[Tools in LangChain]], [[Skills in LangChain]] | [[What is a tool]], [[Tools in LangGraph]] |
+| signals and weights in a fixed form | [[Schemas in LangChain]] | [[Schemas in LangGraph]] |
+| the risk check, limits, the date in the prompt | [[Middleware in LangChain]], [[Hooks in LangChain]] | [[Branches in LangGraph]], [[Errors and retries in LangGraph]] |
+| passing results from one agent to the next | [[State in LangChain]] | [[State in LangGraph]] |
+| the order: analyst → portfolio manager → risk | [[Workflow in LangChain]] | [[Workflow in LangGraph]] |
 
 ## Related
 [[Agents in LangChain]] · [[Workflow in LangChain]] · [[State in LangChain]]

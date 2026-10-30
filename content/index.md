@@ -13,6 +13,7 @@ Every note in the vault, by topic. Decks are in `Slides/`.
 ## Both libraries
 - [[What is a turn]] — one model call + the tools it asked for; what each limit counts
 - [[What is a tool]] — describe → model asks → your code runs → result back; regardless of framework
+- [[Tracing and Langfuse]] — what a trace is, the terminology, how the template sets it up, what Langfuse shows, how to debug with it
 
 ## LangGraph
 Folder `LangGraph/`. Every step is a node you draw; suggested reading order:

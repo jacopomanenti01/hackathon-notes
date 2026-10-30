@@ -10,6 +10,9 @@ Every note in the vault, by topic. Decks are in `Slides/`.
 ## Start here
 - [[The hackathon task]] — the running example: analyst → portfolio manager → risk, one reporting date step by step
 
+## Working with Hermes
+- [[Hermes coding agent]] — the files it reads (`SOUL.md`, `.hermes.md`), its skills, the commands, and how to steer it
+
 ## Both libraries
 - [[What is a turn]] — one model call + the tools it asked for; what each limit counts
 - [[What is a tool]] — describe → model asks → your code runs → result back; regardless of framework

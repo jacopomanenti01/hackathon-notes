@@ -136,5 +136,32 @@ This is the page you'll use most. It has three parts:
 | the same tool called again and again | the model is looping: it needs a clearer prompt or a limit |
 | a generation's **input** missing some data | the model couldn't know it: many "wrong answers" come from here |
 
-*Example:* a run stops with "analyst gave no valid answer". In the tree, one model call is red and took 41 s. Its header says `3,462 prompt → 8,192 completion · max_tokens: 8192`. The reply hit the token limit before the model wrote its answer, so the fix is a larger `max_tokens` in `get_llm(...)` or a more direct prompt, not a code change.
+### Example: a date that failed
+
+A run of the LangChain system stopped on 28 February 2025 with:
+
+```text
+ValueError: analyst gave no valid answer within its call limit.
+```
+
+The message suggests a call limit, but the trace shows what actually happened.
+
+**1. Open the failed trace.**
+
+![[langfuse-error-trace.png]]
+
+- In **Tracing**, the date's row leads to a trace marked **ERROR**. In the tree, the red `ERROR` labels go down to `analyst`, so the failure is inside the analyst.
+- On the right, the **Output** shows `files: {}`: no PDF was written for this date.
+
+**2. Scroll down to the step that stands out, and click it.**
+
+![[langfuse-error-generation.png]]
+
+- The last `model` step is red and took **40.17 s**.
+- Its generation (`TrackedChatOpenAI`) shows `3,462 prompt → 8,192 completion`, and the call's settings: `max_tokens: 8192`, `temperature: 0`. The reply used **exactly** the token limit.
+- Its **Output** is `content: ""`: an empty reply, with no tool call in it.
+
+**3. Put it together.** The model is a reasoning model, and its hidden reasoning counts towards `max_tokens`. It spent all 8,192 tokens thinking and was cut off before writing anything. A reply without a tool call ends the agent's loop, so the agent finished without an answer. 
+
+**4. Fix it.** Give the reply more room with `get_llm("openai/gpt-oss-120b", max_tokens=16384)`, or make the prompt more direct so the model reasons less. 
 

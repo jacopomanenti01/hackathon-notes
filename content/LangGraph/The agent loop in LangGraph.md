@@ -57,7 +57,7 @@ Each `analyst` run sends the model **the whole conversation so far**, so at step
 ```python
 # agents.py, analyst (shortened)
 messages = state.get("messages", [])
-reply = model.invoke([*messages, *new], ...)
+reply = ask_with_tools(llm, "analyst", [*messages, *new], tools)
 return {"messages": [*new, reply]}        # only the new ones; add_messages appends them
 ```
 
@@ -65,7 +65,8 @@ return {"messages": [*new, reply]}        # only the new ones; add_messages appe
 
 ```python
 rounds = sum(isinstance(m, AIMessage) and bool(m.tool_calls) for m in messages)
-model = llm.bind_tools([get_asset_statistics]) if rounds < MAX_TOOL_ROUNDS else llm
+tools = [get_asset_statistics] if rounds < MAX_TOOL_ROUNDS else []
+reply = ask_with_tools(llm, "analyst", [*messages, *new], tools)
 ```
 
 The analyst counts how many of its earlier replies called a tool. After `MAX_TOOL_ROUNDS` (4) it calls the model **without** the tool, so the model can only answer in text, and `tools_condition` sends the run on. `recursion_limit` (40 node runs per date) is only a backstop.
@@ -81,4 +82,4 @@ It's the same model ⇄ tools loop that `create_agent` runs inside one node ([[T
 ## Related
 [[Tools in LangGraph]] · [[Branches in LangGraph]] · [[State in LangGraph]] · [[What is a turn]] · [[The agent loop in LangChain]]
 
-## My notes & questions
+

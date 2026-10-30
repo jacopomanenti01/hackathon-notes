@@ -33,16 +33,24 @@ def portfolio_manager(state, llm):
 
 Nothing is hidden: every message the model receives is built in front of you.
 
-## Two ways to call the model
+## Three ways to call the model
 
-The template has two small helpers in `agents.py`. Every LLM node uses one of them:
+The template has three small helpers in `agents.py`, and every LLM node uses one of them. They differ in **what is bound to the model**, and so in what comes back:
 
-| Helper | What you get back | Who uses it |
-|---|---|---|
-| `ask_for_text` | the model's text | `risk_manager`: the explanation for the PDF |
-| `ask_for_answer` | a checked object in a fixed form (`Analysis`, `Allocation`); an invalid answer is sent back with the error, and the model tries again | `analyst_signals`, `portfolio_manager` ([[Schemas in LangGraph]]) |
+| Helper | What is bound | The reply | Then | Who uses it |
+|---|---|---|---|---|
+| `ask_for_text` | nothing | text | the node uses the text | `risk_manager`: the explanation for the PDF |
+| `ask_with_tools` | real tools (functions) | text **or** tool calls | the graph's `tools` node runs the calls, then comes back ([[The agent loop in LangGraph]]) | `analyst` |
+| `ask_for_answer` | a Pydantic schema, as a tool the model **must** call | an object of that schema (`Analysis`, `Allocation`) | checked; a wrong answer is sent back with the error ([[Schemas in LangGraph]]) | `analyst_signals`, `portfolio_manager` |
 
-And the **analyst** is different again: it calls the model with a tool, one turn per node run, looping with the `tools` node ([[The agent loop in LangGraph]]).
+The last row is a **forced output format**. The model can't reply in free text: it must fill in the schema's fields. This is the same thing `response_format=ToolStrategy(Analysis)` does in the LangChain system ([[Agents in LangChain]]), written out by hand.
+
+```python
+# agents.py (shortened)
+summary  = ask_for_text(llm, "risk_manager", prompt)                         # free text
+reply    = ask_with_tools(llm, "analyst", messages, [get_asset_statistics])  # text or tool calls
+analysis = ask_for_answer(llm, "analyst_signals", prompt, Analysis)          # forced format
+```
 
 ## Why the analyst is split in two
 
@@ -50,7 +58,7 @@ The analyst's work runs in two nodes:
 - **`analyst`** researches: it calls `get_asset_statistics` as often as it needs, then writes its notes in plain text;
 - **`analyst_signals`** takes those notes and the statistics, and fills in the `Analysis` form: one signal per asset.
 
-Separating them keeps each step simple. The research can be free-form, and the form-filling has one job, checked by the schema.
+Separating them keeps each step simple. Why the form is a schema bound to the model, and not the state's types, and how the two could be one node: [[Schemas in LangGraph#Who uses ask_for_answer, and why the analyst is split|Schemas in LangGraph]].
 
 ## The agents' memory
 
@@ -63,4 +71,4 @@ A hand-written agent sees **only the messages its node builds**. `portfolio_mana
 ## Related
 [[Workflow in LangGraph]] · [[The agent loop in LangGraph]] · [[Schemas in LangGraph]] · [[State in LangGraph]] · [[Agents in LangChain]]
 
-## My notes & questions
+

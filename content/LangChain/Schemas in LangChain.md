@@ -57,6 +57,8 @@ With this schema, the answer above fails twice: "very strong" isn't allowed by `
 | `Analysis` | the final answer, step 6 | the model, as its answer (`ToolStrategy`) |
 | `AgentContext` | the date 2025-01-31 | your code; the model never sees it |
 
+`response_format=ToolStrategy(Analysis)` **forces the format** of the agent's final answer: the schema is offered to the model as a tool it must call, so it can only answer by filling in the fields. The LangGraph system does the same by hand with `ask_for_answer` ([[Schemas in LangGraph#Forcing the format, like in LangChain|forcing the format, like in LangChain]]).
+
 ## Watch out
 - **Error messages are prompts.** Write them as instructions the model can act on ("Missing: ['NDX']"), not just "invalid".
 - **A valid answer isn't a good answer.** A schema checks shape and hard rules. It can't tell whether the signals are sensible.

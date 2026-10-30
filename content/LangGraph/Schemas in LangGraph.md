@@ -8,7 +8,7 @@ updated: 2026-10-30
 ---
 # Schemas in LangGraph
 
-> A schema is a form the model must fill in. `ask_for_answer` hands the model the form, checks what it wrote, and sends back the errors until the answer is valid.
+> Binding a Pydantic schema as a tool the model *must* call **forces the format of its answer**: no free text, only the schema's fields. `ask_for_answer` does this, checks the answer, and sends back the errors until it's valid. It's the hand-written version of LangChain's `ToolStrategy`.
 
 ## Context
 
@@ -66,6 +66,61 @@ raise ValueError(f"{agent} gave no valid {schema.__name__}")    # out of attempt
 
 The retries are a `for` loop **inside one node**. They don't add graph steps and aren't stored in the state.
 
+## Forcing the format, like in LangChain
+
+Steps 1–2 are what force the output format. The model gets one "tool", `Analysis`, and `tool_choice="required"` means it must call it. So its reply can only be `Analysis(signals=..., rationale=...)`, never a paragraph of text.
+
+The LangChain system does exactly the same thing, with one line instead of a loop ([[Schemas in LangChain]]):
+
+| | LangGraph: `ask_for_answer` | LangChain: `response_format` |
+|---|---|---|
+| how you ask for the format | `ask_for_answer(llm, "analyst_signals", prompt, Analysis)` | `create_agent(..., response_format=ToolStrategy(Analysis, handle_errors=True))` |
+| how the format is forced | the schema is bound as a tool the model must call | the same: `ToolStrategy` offers the schema as a tool |
+| invalid answer | the error goes back, up to `AGENT_MAX_CORRECTIONS` times | the error goes back (`handle_errors=True`) |
+| where you get the result | the return value: an `Analysis` | `result["structured_response"]`: an `Analysis` |
+| who writes the loop | you (`agents.py`, ~15 lines) | LangChain |
+
+Same schema, same mechanism, same result. In LangGraph you can read every step.
+
+## Same bind_tools, two uses
+
+A real tool and a structured answer go through the same mechanism. What you bind is the difference:
+
+| | A real tool | A structured answer |
+|---|---|---|
+| helper | `ask_with_tools` | `ask_for_answer` |
+| what you bind | a function: `bind_tools([get_asset_statistics])` | a schema with no function behind it: `bind_tools([Analysis], tool_choice="required")` |
+| what the model does | *asks* for the tool, when it decides to | *must* call it, and fills in the fields |
+| what runs it | a `ToolNode` in the graph | nothing: you read `reply.tool_calls[0]["args"]` |
+| what it fixes | nothing: the model may reply in text or call the tool | the **format** of the answer |
+| who uses it | `analyst` | `analyst_signals`, `portfolio_manager` |
+
+So a real tool needs **both** the schema and the node: the schema lets the model ask, and the node runs it ([[Tools in LangGraph]]). A structured answer needs only the schema, because the model's arguments *are* the answer.
+
+## Why not use the state's types?
+
+`PortfolioState` already declares `signals: dict[str, str]` ([[State in LangGraph]]). Couldn't that shape the model's answer? No, for two reasons:
+- **The model never sees it.** The state describes what *nodes* pass to each other. It's never sent to the LLM, so it can't tell the model what to write.
+- **Nothing checks it at run time.** A `TypedDict` is only a type hint. If a node returns `signals = "SPX looks strong"`, LangGraph stores it without complaint.
+
+| | `PortfolioState` (the state's types) | `Analysis` (the schema bound to the model) |
+|---|---|---|
+| who reads it | your nodes | the model |
+| checked at run time? | no | yes: types and validators |
+| what it's for | the hand-off between nodes | the model's answer |
+
+So the node still has to get a well-formed answer *from the model*, then copy it into the state. The schema-as-tool does the first part.
+
+## Who uses ask_for_answer, and why the analyst is split
+
+The analyst's work is two nodes:
+- **`analyst`** researches. It calls `ask_with_tools` with the *real* tool, loops with the `ToolNode`, and writes its notes in plain text, with no forced format ([[The agent loop in LangGraph]]).
+- **`analyst_signals`** fills in the form. It calls `ask_for_answer(..., Analysis)` on those notes and returns checked `signals`.
+
+**Could it be one node?** Yes: bind both, `llm.bind_tools([get_asset_statistics, Analysis])`, and treat an `Analysis` call as "done". That's essentially what `ToolStrategy` does inside LangChain's `create_agent` ([[Schemas in LangChain]]). The template keeps the two separate so each step stays simple: free research first, then one strictly checked answer.
+
+**And `with_structured_output`?** LangChain's `llm.with_structured_output(Analysis)` also returns an `Analysis` object. But when the answer fails validation it raises an error, instead of sending the error back to the model. That's why the template writes its own small loop.
+
 ## Watch out
 - **Error messages are prompts.** The model fixes only what the message tells it: "Missing: ['NDX']" works, "invalid" doesn't.
 - **Keep schemas simple** (flat dicts, enums). The model servers are strict about tool-call formats.
@@ -74,4 +129,4 @@ The retries are a `for` loop **inside one node**. They don't add graph steps and
 ## Related
 [[Agents in LangGraph]] · [[Tools in LangGraph]] · [[Errors and retries in LangGraph]] · [[Schemas in LangChain]]
 
-## My notes & questions
+

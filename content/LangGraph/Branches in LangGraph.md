@@ -46,17 +46,6 @@ graph.add_edge("rebalance", "risk_manager")
 
 The list `["risk_manager", "rebalance"]` names the possible destinations, so LangGraph can check the graph and draw it.
 
-## The router decides, the nodes work
-
-The router only *chooses*. The checking and fixing happen in plain-Python nodes, without any model:
-- **`risk_review`** runs every rule in `RULES` and writes the result to `risk_review` in the state. It writes `approved_weights` only if the weights pass.
-- **`rebalance`** scales US assets down and the others up, checks again, and writes `approved_weights`.
-
-Because these are plain Python, the limit always holds, whatever the model proposed. To add a risk rule, write a function `weights -> violation message or None` and add it to `RULES` in `steps.py`.
-
-## The other router in the graph
-
-The analyst loop uses the same mechanism. `tools_condition` is a router LangGraph provides: "the last message has tool calls → `tools`, otherwise → `END`" ([[The agent loop in LangGraph]]). A conditional edge that points *back* to an earlier node makes a **loop**.
 
 ## Compared with LangChain
 
@@ -69,4 +58,4 @@ The LangChain system has no branch: the same check runs as middleware after the 
 ## Related
 [[Workflow in LangGraph]] · [[The agent loop in LangGraph]] · [[State in LangGraph]] · [[Middleware in LangChain]]
 
-## My notes & questions
+

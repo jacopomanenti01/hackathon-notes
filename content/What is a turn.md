@@ -1,79 +1,62 @@
 ---
 tags: [note]
 topic: general
-template_files: [src/systems/langchain/middleware.py, src/systems/langchain/agents.py, src/systems/langgraph/agents.py, src/config.py]
+sources:
+  - https://docs.langchain.com/oss/python/langchain/agents
+  - https://docs.langchain.com/oss/python/langchain/middleware/built-in
 status: current
 created: 2026-10-30
-updated: 2026-10-30
+updated: 2026-11-02
 ---
 # What is a turn
 
-> A turn is one round of the agent loop: **one model call**, plus running the tools that call asked for.
+> A turn is one round of the agent loop ([[What is a loop]]): **one model call**, plus running the tools that call asked for.
 
 ## Context
 
-The [[Agents in LangChain#Context|running example]] tells the analyst's run in **six example steps**: 
-1. the model reads the request
-2. sees the tool
-3. asks for 90 days
-4. the program runs it
-5. the model asks for 365 days
-6. the model answers. 
+In [[The running example]], the researcher calls `get_returns` twice and `get_volatility` twice, then writes its notes. That's 4 tool calls. But when the agent counts its rounds, it doesn't count tool calls: it counts **how many times it called the model**. Group the run around those calls and you get 4 turns:
 
-That's how a person would tell the story.
-The agent doesn't count steps, though. It counts **how many times it called the model**. 
+| Turn | Model call: the model reads all messages and replies… | …then the tools run |
+|---|---|---|
+| 1 | "call `get_returns(days=500)`" | rejected: days must be ≤ 365; the error is added to the messages |
+| 2 | "call `get_returns(days=90)`" | runs; the returns are added |
+| 3 | "call `get_volatility("equity")` and `get_volatility("bond")`" | both run; both results are added |
+| 4 | the notes, with no tool call | nothing to run, so the loop ends |
 
-Group the six steps around those calls and you get three:
+The strategist takes 2 turns (its first answer is rejected), and the writer takes 1.
 
-| Turn | Model call: the model reads all messages and replies… | …then the tools run | Example steps |
-|---|---|---|---|
-| 1 | "call `get_asset_statistics`, 90 days" | the program runs it, the result is added to the messages | 1, 2, 3, 4 |
-| 2 | "call it again, 365 days" | runs again, result added | 5 |
-| 3 | the answer (`Analysis`) | nothing to run, so the loop ends | 6 |
-
-So the run is **3 turns**. 
 ## The definition
 
 A **turn** is:
 1. **one model call**: the model receives the whole conversation so far, and replies;
-2. **then the tools it asked for**, if any, are run and their results added to the conversation.
+2. **then the tools it asked for**, if any, are run, and their results added to the conversation.
 
 The next turn starts with the next model call. A reply with no tool calls is the **last turn** ([[The agent loop in LangChain]]).
 
 ```mermaid
 flowchart LR
-    subgraph T1 ["turn 1"]
-        M1["model call"] --> R1["run tool: 90 days"]
-    end
-    subgraph T2 ["turn 2"]
-        M2["model call"] --> R2["run tool: 365 days"]
-    end
-    subgraph T3 ["turn 3"]
-        M3["model call: answer"]
-    end
-    T1 --> T2 --> T3
+    T1["turn 1<br/>model → days=500 (error)"] --> T2["turn 2<br/>model → days=90"]
+    T2 --> T3["turn 3<br/>model → 2 × get_volatility"]
+    T3 --> T4["turn 4<br/>model → notes"]
 ```
 
-One turn can contain **several tool calls**. If the model had asked for 90 and 365 days in the same reply, both would run in turn 1, and the whole run would take 2 turns.
+Turn 3 shows that **one turn can hold several tool calls**: they all run before the next model call.
 
-## Why turns matter: the limits count them
+## Why turns matter: limits count different things
 
-The limits in the template count different things. It's easy to mix them up:
-
-| Limit | Counts | In the example run |
+| Limit | Counts | In the researcher's run |
 |---|---|---|
-| `MAX_MODEL_CALLS` (LangChain, 8) | model calls = **turns** | 3 |
-| `MAX_TOOL_CALLS` (LangChain, 6) | **tool calls**, across all turns | 2 |
-| `MAX_TOOL_ROUNDS` (LangGraph, 4) | turns **that called a tool** | 2 |
-| recursion limit (`AGENT_RECURSION_LIMIT` = 100 inside the agent, `RECURSION_LIMIT` = 40 for the workflow) | **graph steps**: every node run, including middleware hooks | several per turn |
+| a **model call** limit (`ModelCallLimitMiddleware`) | model calls = **turns** | 4 |
+| a **tool call** limit (`ToolCallLimitMiddleware`) | **tool calls**, across all turns | 4 (including the rejected one) |
+| the **recursion limit** | **graph steps**: every internal step, including middleware | several per turn |
 
-A **graph step** is smaller than a turn. Each turn passes through several nodes: the model, the tools, and each middleware hook ([[Hooks in LangChain]]). The template's comment estimates about five graph steps per model call. That's why the recursion limit is much larger than the number of turns.
+A **graph step** is smaller than a turn: each turn passes through the model step, the tools step and any middleware hooks ([[Hooks in LangChain]]). That's why a recursion limit has to be much larger than the number of turns you allow.
 
 ## Watch out
-- **Each turn resends everything.** The model has no memory between calls. Every turn it rereads the whole conversation, so more turns cost more time and tokens.
-- **"Turn" in chat apps** sometimes means a single message from one side (user *or* assistant). In these notes, a turn is always one model call plus its tools.
+- **Each turn resends everything.** The model has no memory between calls: every turn it rereads the whole conversation, so more turns cost more time and tokens.
+- **"Turn" in chat apps** sometimes means one message from one side. In these notes, a turn is always one model call plus its tools.
 
 ## Related
-[[The agent loop in LangChain]] · [[Agents in LangChain]] · [[What is a tool]] · [[Middleware in LangChain]] · [[Hooks in LangChain]]
+[[LangChain Overview]] · [[The running example]] · [[The agent loop in LangChain]] · [[What is a tool]] · [[Middleware in LangChain]] · [[Hooks in LangChain]]
 
-
+## My notes & questions

@@ -1,60 +1,75 @@
 ---
 tags: [note]
 topic: langchain
-template_files: [src/systems/langchain/agents.py, src/systems/langchain/tools.py, src/systems/langchain/middleware.py]
+sources:
+  - https://docs.langchain.com/oss/python/langchain/tools
+  - https://docs.langchain.com/oss/python/langchain/runtime
+  - https://huggingface.co/learn/agents-course/unit1/tools
 status: current
 created: 2026-10-30
-updated: 2026-10-30
+updated: 2026-11-02
 ---
 # Tools in LangChain
 
-> You write the tool as a normal Python function with `@tool`, hand it to `create_agent`, and the agent runs it whenever the model asks.
+> You write a tool as a normal Python function with `@tool`, give it to `create_agent`, and the agent runs it whenever the model asks.
 
 ## Context
 
-In the [[Agents in LangChain#Context|running example]], the model asks for `get_asset_statistics` with 90 days, and "the program runs it". Two questions come out of that:
-- how does the model know the tool exists, and what `lookback_days` means?
-- who is "the program" that runs it, and how does it know the date is 31 January 2025?
-
-Both answers are in two places: the tool's definition (`tools.py`) and the agent's construction (`agents.py`).
+In [[The running example]], the researcher asks for `get_returns(days=90)`, and "our program runs it". Two questions come out of that:
+- how does the model know the tool exists, and what `days` means?
+- the result covers the Equity, Bond and Cash funds, but the model never named them. Where does the list of funds come from?
 
 ## Defining the tool
 
 ```python
-# tools.py (shortened)
-@tool(args_schema=StatisticsInput)
-def get_asset_statistics(lookback_days: int, runtime: ToolRuntime[AgentContext]) -> dict:
-    """Mean daily return, volatility (std_dev) and a Sharpe-like score for every asset,
-    over the last `lookback_days` calendar days up to the reporting date (e.g. 90 or 365)."""
-    end = runtime.context.reporting_date          # 2025-01-31, set by our code
-    prices = read_assets(end_date=end)
+from langchain.tools import tool, ToolRuntime
+from pydantic import BaseModel, Field
+
+class ReturnsInput(BaseModel):   # the arguments the model fills in
+    days: int = Field(ge=5, le=365, description="How many past days to measure, from 5 to 365")
+
+@tool(args_schema=ReturnsInput)
+def get_returns(days: int, runtime: ToolRuntime[Mandate]) -> dict:
+    """Total return of every fund in the mandate over the last `days` days, in %."""
+    funds = runtime.context.funds    # ("equity", "bond", "cash"), set by our code
     ...
 ```
 
 `@tool` turns the function into the description the model reads ([[What is a tool]]):
 - the **name** is the function's name;
-- the **description** is the docstring, so write it for the model: what it returns and when to use it;
-- the **arguments** come from `StatisticsInput`: `lookback_days`, an integer between 5 and 3650 ([[Schemas in LangChain]]).
+- the **description** is the docstring, so write it for the model: what the tool returns and when to use it;
+- the **arguments** come from the schema: `days`, an integer from 5 to 365, with its description ([[Schemas in LangChain]]).
 
-The `runtime` parameter is **not** shown to the model. `create_agent` fills it in when it runs the tool, and it carries the context passed to `agent.invoke(..., context=AgentContext("2025-01-31"))`. So the model chooses *how far back* to look, but never *up to which date*.
+The `runtime` argument is **hidden from the model**: LangChain fills it in when it runs the tool, with the mandate your code passed in. So the model chooses *how many days*, but never *which funds*. What the runtime holds, and how to pass it, is in [[Runtime in LangChain]].
 
 ## Giving it to the agent
 
 ```python
-# agents.py (analyst)
-agent = create_agent(llm, tools=[get_asset_statistics], ...)
+researcher = create_agent(model, tools=[get_returns, get_volatility], context_schema=Mandate, ...)
 ```
 
-That one argument does all the work. `create_agent` sends the tool descriptions with every model call. When the reply contains a call, it runs the tool and sends the result back ([[The agent loop in LangChain]]). You never write `bind_tools`, a tools node or an edge, unlike LangGraph ([[Tools in LangGraph]]).
+That one argument does the rest: `create_agent` sends the tool descriptions with every model call, runs the tools the model asks for, and sends the results back ([[The agent loop in LangChain]]).
 
-The final answer is a tool call too: with `response_format=ToolStrategy(Analysis)`, the model "calls" `Analysis` with its signals as arguments. That's how step 6 of the example becomes a checked object.
+## When a call goes wrong
+
+At turn 1 the model asks for `days=500`. The arguments don't match the schema, so **the tool doesn't run**. LangChain sends the error back to the model as the tool's result:
+
+```text
+Error invoking tool 'get_returns' with kwargs {'days': 500} with error:
+ days: Input should be less than or equal to 365
+ Please fix the error and try again.
+```
+
+At turn 2 the model reads it and asks for `days=90`.
+
+That only covers **bad arguments**. If the function itself raises an error (say, the price database is down), the agent stops. To turn those errors into messages too, add middleware: `ToolErrorMiddleware`, or `ToolRetryMiddleware` to try again ([[Middleware in LangChain]]).
 
 ## Watch out
-- **Limits are middleware.** `tool_call_limit()` refuses tool calls after `MAX_TOOL_CALLS`. `call_limit()` stops the agent after `MAX_MODEL_CALLS` ([[Middleware in LangChain]]).
-- **Malformed calls.** If the model's call is broken JSON, the agent would end without an answer. `retry_invalid_tool_calls` sends the error back and asks again.
-- **The docstring is a prompt.** A vague docstring gives vague calls.
+- **The docstring is a prompt.** A vague description gives vague calls.
+- **Keep results small.** Every result is added to the conversation and resent on every turn ([[What is a turn]]).
+- **Limit the calls.** Nothing stops a model that keeps calling tools, unless you add a limit (`ToolCallLimitMiddleware`).
 
 ## Related
-[[What is a tool]] · [[Agents in LangChain]] · [[The agent loop in LangChain]] · [[Schemas in LangChain]] · [[Skills in LangChain]] · [[Tools in LangGraph]]
+[[LangChain Overview]] · [[The running example]] · [[What is a tool]] · [[Runtime in LangChain]] · [[Agents in LangChain]] · [[The agent loop in LangChain]] · [[Schemas in LangChain]] · [[Middleware in LangChain]]
 
-
+## My notes & questions

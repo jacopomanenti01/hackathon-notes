@@ -4,15 +4,17 @@ topic: general
 template_files: [src/systems/langchain/workflow.py, src/systems/langgraph/workflow.py, src/core/run.py, src/config.py]
 status: current
 created: 2026-10-30
-updated: 2026-10-30
+updated: 2026-11-02
 ---
 # The hackathon task
 
 > Build a team of AI agents that, on each reporting date, reads market data and decides how to (re)balance an investment portfolio.
 
+**Every reporting date produces two things: a report (one PDF) and a row of weights.** The report is part of what is evaluated, not just the weights.
+
 ## Context
 
-You manage a portfolio of financial assets: equity indices (`SPX`, `NDX`), bond indices (`TRXVUSGOV*U`, `IBBUS0172`) and money-market rates (`EUROSTR=`, `USDSOFR=`), among others. Once per **reporting date** (e.g. 31 January 2025), you decide which share of the money goes into each asset: the **weights**, which sum to 100%. Next month you decide again, and the weights change. That's **rebalancing**.
+You manage a portfolio of financial assets: equity indices, government and corporate bond indices, and money-market rates, in the United States and the euro area. Once per **reporting date** (e.g. 31 January 2025), you decide which share of the money goes into each asset: the **weights**, which sum to 100%. Next month you decide again, and the weights change. That's **rebalancing**.
 
 In a bank, three people would do this, one after the other. The template builds the same team out of agents:
 
@@ -30,13 +32,13 @@ flowchart LR
 ```
 
 ## One reporting date, step by step
-*(Numbers made up, and only six assets: the real universe has more.)*
+*(Numbers made up, and only a few assets: the real universe has more.)*
 
-1. **Analyst** reads the statistics of the prices up to 31 Jan 2025 and answers: `SPX` high, `NDX` neutral, `EUROSTR=` neutral, `TRXVUSGOV*U` neutral, `USDSOFR=` neutral, …
-2. **Portfolio manager** proposes `SPX` 30%, `NDX` 25%, `EUROSTR=` 20%, `TRXVUSGOV*U` 15%, `USDSOFR=` 10%.
-3. **Risk check.** The template counts an asset as US if its name contains "US", so `TRXVUSGOV*U` and `USDSOFR=` together make 25%: over the 20% limit. It scales the US assets down to 20% (15% → 12%, 10% → 8%) and the others up to 80% (`SPX` 32%, `NDX` 26.7%, `EUROSTR=` 21.3%).
+1. **Analyst** reads the statistics of the prices up to 31 Jan 2025 and gives a signal per asset: European equities high, the other assets neutral.
+2. **Portfolio manager** proposes European equities 40%, euro money-market 20%, euro government bonds 15%, US equities 15%, US government bonds 10%.
+3. **Risk check.** The US assets (US equities and US government bonds) make 25%: over the 20% limit. It scales them down to 20% in total and the others up to 80%.
 4. **Risk manager** writes: "US exposure was 25%, above the 20% limit; the US assets were scaled down…"
-5. **Output.** `core/` writes the approved weights as one row of `weights.csv` and the explanations into `2025-01-31.pdf`. Then the next date starts.
+5. **Output.** The date produces **its report** (`2025-01-31.pdf`: the analysis, the decision and the risk explanation) and **one row of `weights.csv`**. Then the next date starts.
 
 ## The rule that's easy to break: no look-ahead
 
@@ -46,10 +48,12 @@ The data files contain the **whole history**, including the months after 31 Janu
 
 The template works end to end, but each part is a starting point for teams to improve:
 - the analyst only sees price statistics; `financial.csv` and `macro.csv` aren't used yet;
-- the "US" rule misses `SPX` and `NDX`, which are US equity indices;
+- only `assets_metadata.csv` is used, and only for the "US" rule; `financial_metadata.csv` and `macro_metadata.csv` (what each series is, its frequency and units) are yours to use;
 - there's one risk rule.
 
-## Where each part is explained
+## Where each idea is explained
+
+The framework notes explain each idea on a small made-up example, [[The running example]] (three funds, no real data), not on this task. To choose a library, see [[LangChain or LangGraph]].
 
 | Part of the task | LangChain notes | LangGraph notes |
 |---|---|---|

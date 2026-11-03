@@ -1,31 +1,34 @@
 ---
 tags: [note]
 topic: langchain
-template_files: [src/systems/langchain/agents.py, src/systems/langchain/middleware.py]
+sources:
+  - https://docs.langchain.com/oss/python/langchain/agents
+  - https://docs.langchain.com/oss/python/langchain/messages
 status: current
 created: 2026-10-30
-updated: 2026-10-30
+updated: 2026-11-02
 ---
 # The agent loop in LangChain
 
-> Inside `create_agent` there are just two steps (**langchain steps**), **model** and **tools**, repeated until the model stops asking for tools. Everything else is added around them.
+> Inside `create_agent` there are two steps, **model** and **tools**, repeated until the model stops asking for tools. One list, `messages`, carries the whole conversation from one turn to the next. (The idea of the loop, independent of any library: [[What is a loop]].)
 
 ## Context
 
-The [[Agents in LangChain#Context|running example]] lists six steps (**example steps**). Seen from inside the agent, they're **three [[What is a turn|turns]]** of the same **langchain steps** loop, and one list, `messages`, that grows each turn:
+In [[The running example]], the researcher runs for 4 [[What is a turn|turns]]. Seen from inside the agent, each turn is the same two steps, and the `messages` list grows every time:
 
-| Turn | model step: the LLM reads all `messages` and replies | tools step: run the calls, add the results | `messages` now holds |
-|---|---|---|---|
-| 1 | "call `get_asset_statistics` with 90 days" | the 90-day statistics | prompt (role + [[Skills in LangChain\|skills]]), request, call, table |
-| 2 | "call it again with 365 days" | the 365-day statistics | … + call, table |
-| 3 | "call `Analysis(signals=..., rationale=...)`": the answer | nothing to run: the loop ends | … + the answer |
+| Turn | model step: the model reads all `messages` and replies | tools step: run the calls, add the results |
+|---|---|---|
+| 1 | "call `get_returns(days=500)`" | rejected: the error message is added |
+| 2 | "call `get_returns(days=90)`" | the returns are added |
+| 3 | "call `get_volatility("equity")` and `get_volatility("bond")`" | both results are added |
+| 4 | the notes, with no tool call | nothing to run: the loop ends |
 
-On every turn, the model receives **the whole list** of messages: its earlier calls (history) and all their results. That's how, at turn 3, it can compare the 90-day and 365-day numbers it asked for at turns 1 and 2. The model itself remembers nothing between calls. The list is its memory.
+At turn 4 the model can compare the returns (turn 2) with the volatility (turn 3) because it receives **the whole list** on every call. The model remembers nothing between calls: the list is its memory.
 
 ## The two steps
 
-1. **model**: send all of `messages` to the LLM, together with the tool descriptions. Add its reply to the list.
-2. **tools**: if the reply contains tool calls, run each one and add its result as a `ToolMessage` (the message type for a tool's result). Then go back to step 1.
+1. **model**: send all of `messages` to the model, with the tool descriptions. Add its reply to the list.
+2. **tools**: if the reply contains tool calls, run each one, and add its result as a `ToolMessage` (the message type for a tool's result). Go back to step 1.
 
 ```mermaid
 flowchart LR
@@ -35,60 +38,47 @@ flowchart LR
     M -->|no tool calls| E([END])
 ```
 
-The same loop written by hand *(simplified: this isn't template code, it's roughly what `create_agent` does for you)*:
+## Example
+
+The same loop written by hand *(simplified: roughly what `create_agent` does for you)*:
 
 ```python
-from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
+from langchain.messages import HumanMessage, SystemMessage, ToolMessage
 
-tools = {t.name: t for t in [get_asset_statistics]}
-model = llm.bind_tools(list(tools.values()))        # the model gets the tool descriptions
+tools = {t.name: t for t in [get_returns, get_volatility]}
+model_with_tools = model.bind_tools(list(tools.values()))     # the model gets the tool descriptions
 
-messages = [SystemMessage(ANALYST + skills_prompt("signals", "rates")), HumanMessage("Analyse the assets.")]
-for turn in range(MAX_MODEL_CALLS):                  # a limit, so the loop always ends
-    # 1. model step: send ALL the messages, add the reply
-    reply = model.invoke(messages)
+messages = [SystemMessage("You are a market researcher. ..."), HumanMessage("Research the funds.")]
+for turn in range(8):                                # a limit, so the loop always ends
+    reply = model_with_tools.invoke(messages)        # 1. model step: send ALL the messages
     messages.append(reply)
-    if not reply.tool_calls:                          # no tool calls: this reply is the answer
+    if not reply.tool_calls:                         # no tool calls: this reply is the answer
         break
-    # 2. tools step: run each call, add its result tagged with the call's id
-    for call in reply.tool_calls:                     # e.g. {"name": "get_asset_statistics",
-        tool = tools[call["name"]]                    #       "args": {"lookback_days": 90}, "id": "call_1"}
-        result = tool.invoke(call["args"])
+    for call in reply.tool_calls:                    # 2. tools step: e.g. {"name": "get_volatility",
+        result = tools[call["name"]].invoke(call["args"])   #     "args": {"fund": "bond"}, "id": "call_4"}
         messages.append(ToolMessage(content=str(result), tool_call_id=call["id"]))
-
-answer = messages[-1].content
 ```
 
-The two numbered comments are the two steps, and the `for` loop is the arrow from `tools` back to `model`. The rest is what `create_agent` adds on top:
-- it fills in the hidden `runtime` (the reporting date) when it runs a tool;
-- it checks the arguments against the tool's schema, and sends errors back to the model;
-- it turns the final answer into a checked object (`structured_response`);
-- it runs your middleware at each [[Hooks in LangChain|hook]].
+This hand-written version runs as is only for tools **without** a `runtime` argument: calling `get_returns` by hand fails with *"runtime: Field required"*.
 
-The LangGraph system writes this same loop as two graph nodes, `analyst` and `tools` ([[Tools in LangGraph]]).
+What `create_agent` adds on top: it fills in the hidden `runtime` (the mandate: [[Runtime in LangChain]]), checks arguments and sends errors back (turn 1), checks the final answer against a schema ([[Schemas in LangChain]]), and runs your middleware at each [[Hooks in LangChain|hook]].
 
 ## How the loop ends
 
-| What happens | Why it stops | In the template |
-|---|---|---|
-| The model replies **without tool calls** | it has nothing more to ask; the text is the answer | the `risk_manager`'s explanation |
-| The model calls the **answer schema** | with `ToolStrategy`, the answer is a tool call; it's checked and stored in `structured_response` | turn 3 above |
-| A **hook** ends it | middleware decides to stop | `call_limit()` after `MAX_MODEL_CALLS` |
-| The **recursion limit** is hit | too many graph steps: an error | `AGENT_RECURSION_LIMIT = 100` |
+| What happens | In the example |
+|---|---|
+| the model replies **without tool calls**: the text is the answer | the researcher's turn 4, the writer's only turn |
+| the model fills in the **answer schema** (`response_format`), and it passes the checks | the strategist's turn 2 |
+| a **middleware** stops it, e.g. a call limit | after too many model calls |
+| the **recursion limit** is hit: an error | a backstop for runaway loops |
 
-Two things **don't** end it:
-- An **invalid answer** (say, "very strong" instead of high, neutral or low). With `handle_errors=True`, the error goes back to the model as a message, and turn 3 is simply repeated ([[Schemas in LangChain]]).
-- **Too many tool calls.** After `MAX_TOOL_CALLS`, `tool_call_limit()` refuses further calls with an error message, so the model has to answer with what it has.
-
-## Where middleware fits
-
-Around these two steps there are fixed moments where your code can run: before the agent, before, around and after each model call, around each tool call, and after the agent. These are [[Hooks in LangChain|hooks]], and each one is an extra step in the loop. That's why one turn takes several internal steps, and why `AGENT_RECURSION_LIMIT` (100) sits far above `MAX_MODEL_CALLS` (8).
+An **invalid answer doesn't end the loop**: the strategist's first answer is rejected, the error goes back as a message, and the strategist simply answers again.
 
 ## Watch out
-- **The list grows every turn.** Every model call resends all of it, so many calls with big results get slow and costly. Keep tool outputs small.
-- **The loop is invisible from outside.** The workflow only sees the final state ([[Workflow in LangChain]]). To see each turn, open the run in Langfuse.
+- **The list grows every turn**, and every model call resends all of it. Many turns with big tool results get slow and costly.
+- **From outside, you only see the final state.** To see each turn, look at the full `messages`, or a trace of the run.
 
 ## Related
-[[Agents in LangChain]] · [[What is a turn]] · [[What is a tool]] · [[Hooks in LangChain]] · [[Tools in LangChain]] · [[Middleware in LangChain]] · [[Tools in LangGraph]]
+[[LangChain Overview]] · [[The running example]] · [[What is a loop]] · [[What is a turn]] · [[What is a tool]] · [[Agents in LangChain]] · [[Tools in LangChain]] · [[Hooks in LangChain]] · [[Middleware in LangChain]]
 
-
+## My notes & questions

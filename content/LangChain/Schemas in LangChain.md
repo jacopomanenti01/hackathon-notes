@@ -1,69 +1,90 @@
 ---
 tags: [note]
 topic: langchain
-template_files: [src/systems/langchain/schema.py]
+sources:
+  - https://docs.langchain.com/oss/python/langchain/structured-output
+  - https://docs.langchain.com/oss/python/langchain/tools
 status: current
 created: 2026-10-30
-updated: 2026-10-30
+updated: 2026-11-02
 ---
 # Schemas in LangChain
 
-> A schema describes the shape of some data. The model reads it to know what to write, and your code uses it to check what the model wrote.
+> A schema describes the shape of some data: its fields, their types and their rules. The model reads it to know what to write, and your code uses it to check what the model wrote.
 
 ## Context
 
-At step 6 of the [[Agents in LangChain#Context|running example]], the model "writes its answer: a signal per asset and a short reason". But a model writes text, and text can be anything:
+In [[The running example]], the strategist must return the portfolio's weights. A model writes text, and text can be anything:
 
 ```text
-"SPX looks very strong, NDX is fine too, I'd avoid rates."
+"I'd go mostly equity, maybe 60%, and put the rest in bonds."
 ```
 
-That answer has three problems. "Very strong" isn't one of high, neutral or low. It doesn't give a signal for every asset. And the next agent can't read it reliably. What we need is something like:
+That's hard for the next step to use: "maybe 60%" isn't a number, the Cash Fund is missing, and the risk check can't read a sentence. It needs something like:
 
 ```python
-Analysis(signals={"SPX": "high", "NDX": "neutral", "EUROSTR=": "neutral", ...},
-         rationale="SPX ranks top third in both the 90- and 365-day windows ...")
+Allocation(weights={"equity": 0.55, "bond": 0.30, "cash": 0.15},
+           rationale="Equity has the best return for its risk.")
 ```
 
 A **schema** is how you get that.
 
 ## What a schema does
 
-A schema is a Python class (Pydantic `BaseModel`, or a `dataclass`) that declares the fields, their types and their allowed values. It does **two jobs at once**:
+A schema is a Python class, usually a Pydantic `BaseModel`, that declares the fields, their types and their allowed values. It does **two jobs at once**:
 
-1. **It instructs the model.** The class docstring and each field's `description` are sent to the model, so they're part of the prompt.
-2. **It checks the answer.** Pydantic rejects data of the wrong shape, and a **validator** (`@field_validator`) can enforce any rule you write in Python. When a check fails, the error message goes back to the model, which tries again.
+1. **It instructs the model.** The class docstring and each field's `description` are sent to the model: they're part of the prompt.
+2. **It checks the answer.** Pydantic rejects data of the wrong shape, and a **validator** (`@field_validator`) enforces any rule you write in Python. When a check fails, the error goes back to the model, which answers again.
+
+## Example
 
 ```python
-class Analysis(BaseModel):
-    """One high, neutral, or low signal per asset and a concise rationale."""   # the model reads this
-    signals: dict[str, Literal["high", "neutral", "low"]] = Field(description="One signal for every asset")
-    rationale: str = Field(description="Concise rationale")
+from typing import Literal
+from pydantic import BaseModel, Field, field_validator
 
-    @field_validator("signals")
+class Allocation(BaseModel):
+    """How much of the portfolio goes into each fund, and why."""        # the model reads this
+    weights: dict[Literal["equity", "bond", "cash"], float] = Field(
+        description="A weight between 0 and 1 for every fund")
+    rationale: str
+
+    @field_validator("weights")
     @classmethod
-    def _every_asset(cls, signals):
-        validate_asset_names(signals)   # raises "Missing: [...]; unexpected: [...]" -> back to the model
-        return signals
+    def _every_fund(cls, weights):
+        missing = sorted({"equity", "bond", "cash"} - set(weights))
+        if missing:
+            raise ValueError(f"Every fund needs a weight; missing: {missing}")
+        if any(w < 0 for w in weights.values()):
+            raise ValueError("Weights can't be negative")
+        return weights
 ```
 
-With this schema, the answer above fails twice: "very strong" isn't allowed by `Literal`, and the missing assets fail `_every_asset`. The model gets both errors and answers again.
+```python
+from langchain.agents.structured_output import ToolStrategy
 
-## The three schemas in the example
+strategist = create_agent(model, response_format=ToolStrategy(Allocation), ...)
+result = strategist.invoke(...)
+allocation = result["structured_response"]       # an Allocation, already checked
+```
 
-| Schema | In the example | Who fills it in |
-|---|---|---|
-| `StatisticsInput` | `lookback_days=90` in the tool call (5 to 3650) | the model, when calling a tool |
-| `Analysis` | the final answer, step 6 | the model, as its answer (`ToolStrategy`) |
-| `AgentContext` | the date 2025-01-31 | your code; the model never sees it |
+In the example, the strategist's first answer gives equity and bond only. The validator raises *"Every fund needs a weight; missing: ['cash']"*, LangChain sends that message back, and the second answer (55/30/15) passes.
 
-`response_format=ToolStrategy(Analysis)` **forces the format** of the agent's final answer: the schema is offered to the model as a tool it must call, so it can only answer by filling in the fields. The LangGraph system does the same by hand with `ask_for_answer` ([[Schemas in LangGraph#Forcing the format, like in LangChain|forcing the format, like in LangChain]]).
+## Where schemas are used
+
+| Schema | Passed to | Who fills it in | Seen by the model? |
+|---|---|---|---|
+| `ReturnsInput` | `@tool(args_schema=...)` | the model, when calling a tool | yes |
+| `Allocation` | `response_format=ToolStrategy(...)` | the model, as its final answer | yes |
+| `Mandate` | `context_schema=` | your code ([[Runtime in LangChain]]) | **no** |
+
+`ToolStrategy` gives the model the schema **as a tool to call** for its final answer: a tool's arguments are already structured data. Unlike a real tool, nothing runs afterwards: the arguments *are* the answer. Retrying on a failed check is on by default (`handle_errors=True`). Passing the schema directly, `response_format=Allocation`, lets LangChain choose between this and the model provider's own structured output.
 
 ## Watch out
-- **Error messages are prompts.** Write them as instructions the model can act on ("Missing: ['NDX']"), not just "invalid".
-- **A valid answer isn't a good answer.** A schema checks shape and hard rules. It can't tell whether the signals are sensible.
+- **Error messages are prompts.** Write them as instructions the model can act on ("missing: ['cash']"), not just "invalid".
+- **Valid isn't good.** A schema checks shape and hard rules. It can't tell whether the weights are a sensible portfolio.
+- **Keep schemas simple**: flat fields, dicts, fixed values (`Literal`). Deeply nested schemas are harder for models to fill in.
 
 ## Related
-[[Agents in LangChain]] · [[What is a tool]] · [[Tools in LangChain]] · [[State in LangChain]]
+[[LangChain Overview]] · [[The running example]] · [[Agents in LangChain]] · [[Tools in LangChain]] · [[What is a tool]] · [[State in LangChain]]
 
-
+## My notes & questions

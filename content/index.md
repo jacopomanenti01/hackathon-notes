@@ -1,42 +1,47 @@
 ---
 tags: [index]
 created: 2026-10-30
-updated: 2026-10-30
+updated: 2026-11-02
 ---
 # Index
 
-Every note in the vault, by topic. Decks are in `Slides/`.
+Notes on the ideas behind LangChain and LangGraph, explained on one small example. Decks are in `Slides/`.
 
 ## Start here
-- [[The hackathon task]] — the running example: analyst → portfolio manager → risk, one reporting date step by step
-
-## Working with Hermes
-- [[Hermes coding agent]] — the files it reads (`SOUL.md`, `.hermes.md`), its skills, the commands, and how to steer it
+- [[The running example]] — three agents build a portfolio from three made-up funds: researcher → strategist → risk check → writer, step by step. Every note builds on it.
+- [[LangChain or LangGraph]] — what each is good at, what each hides from you, and which pages to read for each
 
 ## Both libraries
-- [[What is a turn]] — one model call + the tools it asked for; what each limit counts
+- [[What is a loop]] — the agent loop: model decides → tools run → model reads, until it answers; what every loop needs
 - [[What is a tool]] — describe → model asks → your code runs → result back; regardless of framework
-- [[Tracing and Langfuse]] — what a trace is, the terminology, how the template sets it up, what Langfuse shows, how to debug with it
+- [[What is a turn]] — one model call + the tools it asked for; what each limit counts
+- [[Tracing and Langfuse]] — what a trace is, the terminology, what Langfuse shows, how to debug with it
+
+## LangChain
+Folder `LangChain/`. `create_agent` runs the loop for you.
+
+**Start with [[LangChain Overview]]**: a guided tour of how the ideas fit together, told as the story of the running example, with a link to the detail note for each idea. Detail notes, in reading order:
+- [[Agents in LangChain]] — what an agent is; the parts of `create_agent`; running it
+- [[The agent loop in LangChain]] — the model ⇄ tools loop inside `create_agent`; when it ends
+- [[Tools in LangChain]] — `@tool`: what the model sees, what happens on a bad call
+- [[Runtime in LangChain]] — context, state and store: what tools and middleware see, and the model doesn't
+- [[Schemas in LangChain]] — instruction + check: tool inputs, the answer's form, the context
+- [[Skills in LangChain]] — methods in their own files: in the system prompt, or loaded on demand
+- [[Hooks in LangChain]] — the moments in the loop where your code runs; node-style vs wrap-style
+- [[Middleware in LangChain]] — your code in the loop: built-in, decorator or class; guardrails and limits
+- [[State in LangChain]] — the workflow's state vs each agent's state; adding keys
+- [[Workflow in LangChain]] — agents in a line with `StateGraph`; other ways to combine agents
 
 ## LangGraph
 Folder `LangGraph/`. Every step is a node you draw; suggested reading order:
 - [[Workflow in LangGraph]] — the whole run as a graph: nodes, edges, `compile`
 - [[State in LangGraph]] — one shared dictionary; replace vs reducers (`add_messages`)
-- [[Agents in LangGraph]] — hand-written LLM nodes: `ask_for_text`, `ask_for_answer`
-- [[The agent loop in LangGraph]] — `analyst ⇄ tools`, drawn in the graph; how it stops
-- [[Tools in LangGraph]] — `bind_tools` + `ToolNode`; hidden date; `tool_error`; adding your own
+- [[Agents in LangGraph]] — hand-written LLM nodes
+- [[The agent loop in LangGraph]] — the model ⇄ tools loop, drawn in the graph; how it stops
+- [[Tools in LangGraph]] — `bind_tools` + `ToolNode`; hidden values; tool errors
 - [[Schemas in LangGraph]] — forms the model fills in; the correction loop
-- [[Branches in LangGraph]] — routers and conditional edges: `risk_review` → `rebalance`
+- [[Branches in LangGraph]] — routers and conditional edges
 - [[Errors and retries in LangGraph]] — four things that go wrong and the guard for each
 
-## LangChain
-Folder `LangChain/`. `create_agent` runs the loop for you.
-- [[Agents in LangChain]] — what an agent is; the parts of `create_agent`; running it from a node
-- [[Tools in LangChain]] — `@tool` + `tools=[...]`: what the model sees, who runs it, adding your own
-- [[The agent loop in LangChain]] — the `model` ⇄ `tools` graph inside `create_agent`; when it ends
-- [[Skills in LangChain]] — methods in `SKILL.md`, added to the system prompt; how to add one
-- [[Hooks in LangChain]] — the moments in the loop where your code runs; step hooks vs wrap hooks
-- [[Middleware in LangChain]] — hooks into the agent's loop; prebuilt, decorator or class
-- [[Schemas in LangChain]] — instruction + check: tool inputs, agent outputs, runtime context
-- [[State in LangChain]] — the graph's state vs each agent's state; return only what changes
-- [[Workflow in LangChain]] — three agents in a line; `StateGraph` → nodes → edges → compile
+## Working with Hermes
+- [[Hermes coding agent]] — how to start it, the files it reads, its skills, the commands, and how to steer it

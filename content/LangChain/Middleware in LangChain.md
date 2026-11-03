@@ -1,10 +1,15 @@
 ---
 tags: [note]
 topic: langchain
-template_files: [src/systems/langchain/middleware.py, src/systems/langchain/agents.py]
+sources:
+  - https://docs.langchain.com/oss/python/langchain/middleware/overview
+  - https://docs.langchain.com/oss/python/langchain/middleware/built-in
+  - https://docs.langchain.com/oss/python/langchain/middleware/custom
+  - https://docs.langchain.com/oss/python/langchain/guardrails
+  - https://medium.com/@ale.garavaglia/langchain-middlewares-lightweight-hooks-for-more-structured-agents-f0abba828934
 status: current
 created: 2026-10-30
-updated: 2026-10-30
+updated: 2026-11-02
 ---
 # Middleware in LangChain
 
@@ -12,60 +17,68 @@ updated: 2026-10-30
 
 ## Context
 
-Look again at the [[Agents in LangChain#Context|running example]] and ask what could go wrong, or what's missing:
-- **The date.** How does the model know the date is 31 January 2025? It isn't in the analyst's prompt (`ANALYST` in `prompts.py`).
-- **A broken call.** At step 3 the model's reply might be cut off half-way through `{"lookback_days": 9`. Then the agent would stop without an answer.
-- **A model that never stops** asking for statistics: 90 days, 120, 180, 200, ...
-- **A server error** from the LLM provider in the middle of the run.
+Look at [[The running example]] and ask what isn't the model's job:
+- **The mandate.** The model must know which funds it may use and that equity is capped at 40%, but those values live in the hidden context, not in the prompt ([[Runtime in LangChain]]).
+- **The limit.** The strategist proposes 55% in equity. The 40% cap must hold whatever the model wrote.
+- **A model that never stops**, asking for returns and volatility over and over.
+- **A server error** from the model provider in the middle of the run.
 
-None of these is the model's job, and `create_agent` runs the loop for you, so there's nowhere to put your own `if`. **Middleware** is where that code goes. Here's the analyst's list, one item per problem:
+`create_agent` runs the loop for you, so there's no place for your own `if`. **Middleware** is where that code goes, attached to the loop's [[Hooks in LangChain|hooks]]:
 
 ```python
-# agents.py (analyst)
-middleware = [
-    reporting_date_prompt,               # adds "The reporting date is 2025-01-31." to the prompt
-    retry_invalid_tool_calls,            # broken call: show the error, ask again
-    ModelRetryMiddleware(max_retries=2), # server error: retry the call
-    tool_call_limit(),                   # at most MAX_TOOL_CALLS tool calls
-    call_limit(),                        # at most MAX_MODEL_CALLS model calls
-]
+researcher = create_agent(model, tools=[get_returns, get_volatility], context_schema=Mandate,
+    middleware=[
+        mandate_prompt,                              # adds the mandate to the system prompt
+        ModelRetryMiddleware(max_retries=2),         # server error: retry the call
+        ToolCallLimitMiddleware(run_limit=6),        # at most 6 tool calls
+        ModelCallLimitMiddleware(run_limit=8),       # at most 8 model calls
+    ])
+strategist = create_agent(model, response_format=ToolStrategy(Allocation), context_schema=Mandate,
+    middleware=[mandate_prompt, ModelCallLimitMiddleware(run_limit=8), EquityCapGuardrail()])
 ```
-
-## How it plugs in
-
-The loop has fixed moments where middleware can run, called **hooks**: before the agent starts, before, around and after each model call, around each tool call, and after the agent ends ([[Hooks in LangChain]]). A middleware is one or more functions, each attached to a hook. The agent runs them in list order.
 
 ## Three ways to create one
 
-| Way | Use it when | Template example |
+| Way | Use it when | Example |
 |---|---|---|
-| **Prebuilt** class | a common need someone already solved | `ModelRetryMiddleware`, `ModelCallLimitMiddleware`, `ToolCallLimitMiddleware` |
-| **Decorator** on a function | one hook, simple logic | `@dynamic_prompt` (`reporting_date_prompt`), `@wrap_model_call` (`retry_invalid_tool_calls`) |
-| **Subclass** of `AgentMiddleware` | several hooks, or it must store new keys | `UsExposureGuardrail` |
+| **Built-in** class | a common need someone already solved | `ModelRetryMiddleware`, `ModelCallLimitMiddleware`, `ToolCallLimitMiddleware`; also summarizing long conversations, asking a human for approval, hiding personal data |
+| **Decorator** on a function | one hook, simple logic | `@dynamic_prompt` (`mandate_prompt`), `@before_model`, `@wrap_model_call` |
+| **Subclass** of `AgentMiddleware` | several hooks, settings, or new state keys | `EquityCapGuardrail` |
+
+## Example
 
 ```python
-# A decorator: runs before every model call, returns the system prompt to use
-@dynamic_prompt
-def reporting_date_prompt(request):
-    return f"{request.system_prompt}\n\nThe reporting date is {request.runtime.context.reporting_date}."
+from langchain.agents.middleware import AgentMiddleware, dynamic_prompt
 
-# A subclass: runs once, after the portfolio manager has answered, and stores new keys
-class UsExposureGuardrail(AgentMiddleware[RiskState]):
-    state_schema = RiskState            # adds approved_weights, risk_review to the agent's state
+@dynamic_prompt                                      # a decorator: builds the prompt before each call
+def mandate_prompt(request) -> str:
+    m = request.runtime.context
+    return f"{request.system_prompt}\n\nThe funds: {', '.join(m.funds)}. At most {m.max_equity:.0%} in equity."
+
+class EquityCapGuardrail(AgentMiddleware[RiskState]): # a class: runs once, after the answer
+    state_schema = RiskState                          # adds approved_weights, risk_review to the state
+
     def after_agent(self, state, runtime):
-        proposed = state["structured_response"].normalized()
-        approved = rebalance(proposed) if us_exposure(proposed) > MAX_US_EXPOSURE else proposed
-        return {"approved_weights": approved, ...}
+        weights = state["structured_response"].weights
+        total = sum(weights.values())
+        weights = {f: w / total for f, w in weights.items()}          # make them sum to 1
+        cap = runtime.context.max_equity
+        if weights["equity"] <= cap:
+            return {"approved_weights": weights, "risk_review": {"within_limit": True}}
+        rest = 1 - weights["equity"]                                   # cap equity, scale the others up
+        approved = {f: cap if f == "equity" else w * (1 - cap) / rest for f, w in weights.items()}
+        return {"approved_weights": approved,
+                "risk_review": {"within_limit": False, "equity_proposed": weights["equity"]}}
 ```
 
-This is step 3 of [[The hackathon task]]: the guardrail is plain Python, so the 20% US limit holds whatever the model said. In the LangGraph system, the same check is a separate node.
+In the example, the strategist proposes equity 55%, bond 30%, cash 15%: the guardrail caps equity at 40% and approves **equity 40%, bond 40%, cash 20%**. It's plain Python, so the rule holds whatever the model said. This is a **deterministic guardrail** (a rule in code). A **model-based** guardrail would ask a second model to judge the answer.
 
 ## Watch out
-- **Every agent needs a limit.** Without `call_limit()` and `tool_call_limit()`, nothing stops a model that keeps calling tools.
-- **New keys need `state_schema`.** Middleware can only write keys declared in the agent's state ([[State in LangChain]]).
-- **Order matters.** Middleware listed first wraps the ones after it.
+- **Every agent needs a limit.** Without `ModelCallLimitMiddleware`, nothing stops a model that keeps calling tools. When it stops the agent, there is no answer: `structured_response` is `None`.
+- **New keys need `state_schema`.** A key a middleware returns but never declared is silently dropped ([[State in LangChain]]).
+- **Order matters.** The first middleware in the list wraps the others ([[Hooks in LangChain]]).
 
 ## Related
-[[Hooks in LangChain]] · [[Agents in LangChain]] · [[State in LangChain]] · [[The agent loop in LangChain]]
+[[LangChain Overview]] · [[The running example]] · [[Hooks in LangChain]] · [[Runtime in LangChain]] · [[Agents in LangChain]] · [[State in LangChain]] · [[The agent loop in LangChain]]
 
-
+## My notes & questions

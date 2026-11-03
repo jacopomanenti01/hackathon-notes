@@ -145,6 +145,7 @@ Type these in the Hermes prompt.
 
 
 ## Watch out
+- **Don't press `Ctrl+C` to paste into Hermes.** In the terminal, `Ctrl+C` means *stop*, so it kills your session and all its context. To paste, **right-click → Paste**.
 - **It shares your workspace.** Teammates may have the same files open. Hermes is told not to overwrite their work, but tell it which files are yours to change.
 - **It can't break the rules for you.** It won't edit `core/`, rebuild the environment or touch secrets, even if asked. That's on purpose: those protect your submission and your teammates.
 

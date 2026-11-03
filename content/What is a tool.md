@@ -1,10 +1,12 @@
 ---
 tags: [note]
 topic: general
-template_files: [src/systems/langgraph/tools.py, src/systems/langchain/tools.py]
+sources:
+  - https://huggingface.co/learn/agents-course/unit1/tools
+  - https://docs.langchain.com/oss/python/langchain/tools
 status: current
 created: 2026-10-30
-updated: 2026-10-30
+updated: 2026-11-02
 ---
 # What is a tool
 
@@ -12,41 +14,57 @@ updated: 2026-10-30
 
 ## Context
 
-In the [[Agents in LangChain#Context|running exampl]], the analyst needs statistics on the prices up to 31 January 2025. At steps 3–4 the model "calls `get_asset_statistics` with 90 days" and "the program runs it". Here is what actually travels between the two *(simplified, numbers made up)*:
+In [[The running example]], the researcher needs the funds' returns. A model only reads and writes text: it can't open a database of prices. So at turn 2 it *writes* "call `get_returns` with `days=90`", and our program runs the function. Here is what actually travels between the two:
 
 ```mermaid
 sequenceDiagram
     participant C as Your code
     participant M as Model
-    C->>M: tool list (name, description, arguments) + "Analyse the assets."
-    M-->>C: tool call id=call_1: get_asset_statistics(lookback_days=90)
-    Note over C: runs get_asset_statistics(90) on the real prices
-    C->>M: tool result id=call_1: SPX sharpe 0.08, NDX sharpe 0.11, ...
+    C->>M: tool list (name, description, arguments) + "Research the funds."
+    M-->>C: tool call id=call_2: get_returns(days=90)
+    Note over C: runs get_returns(90)
+    C->>M: tool result id=call_2: equity +4%, bond +1%, cash +0.5%
     M-->>C: next decision: another call, or the answer
 ```
 
-The model only ever sends and receives **text**. It didn't open a file or run any code. It wrote a structured request, and your program did the rest.
+The model never ran any code. It wrote a structured request, and your program did the rest.
 
 ## The four steps
 
 Every tool call, in every framework, follows the same four steps:
 
-1. **You describe** each tool to the model. A tool has:
-	- a **name** (`get_asset_statistics`)
-	- a **description** saying what it does and when to use it (the function's docstring)
-	- its **arguments** with their types and limits (`lookback_days`: an integer from 5 to 3650).
-2. **The model decides.** It replies either with text or with a **tool call**: the tool's name, the argument values, and an **id**.
-3. **Your code runs it.** Your program executes the function with those arguments.
-4. **The result goes back** to the model as a message carrying the same id, so the model knows which request it answers. The model then decides again.
+1. **You describe** each tool to the model:
+	- a **name**: `get_returns`;
+	- a **description** of what it does and when to use it: "Total return of every fund over the last `days` days";
+	- its **arguments**, with types and limits: `days`, an integer from 5 to 365.
+2. **The model decides.** It replies either with text, or with a **tool call**: the tool's name, the argument values, and an **id**.
+3. **Your code runs it** with those arguments.
+4. **The result goes back** to the model as a message carrying the same id, so the model knows which request it answers. Then the model decides again.
 
-In LangChain, `create_agent` does step 3 for you ([[Tools in LangChain]]). In LangGraph you add it as a node ([[Tools in LangGraph]]).
+A reply can hold **several** tool calls: at turn 3 the researcher asks for `get_volatility("equity")` and `get_volatility("bond")` at once, and both run before the model is called again.
+
+## Example
+
+How LangChain turns a Python function into that description:
+
+```python
+from typing import Literal
+from langchain.tools import tool
+
+@tool
+def get_volatility(fund: Literal["equity", "bond", "cash"]) -> dict:
+    """Annualised volatility of one fund, in %: how much its price moves up and down."""
+    ...
+```
+
+The function name becomes the tool's name, the docstring its description, and the type hints its arguments ([[Tools in LangChain]]).
 
 ## Watch out
-- **The model can call it wrong.** It may send bad arguments (`lookback_days=2`) or broken JSON. Check the input ([[Schemas in LangChain]]), and send the error back so the model can retry.
-- **Don't let the model choose what it shouldn't.** The reporting date isn't an argument. Your code passes it in (`ToolRuntime`), so the model can't look at prices after 31 January.
-- **Every call is a round trip** to the model. A loop needs a limit.
+- **The model can call it wrong.** At turn 1 it asks for `days=500`. Check the arguments, and send the error back so the model can fix its call ([[Schemas in LangChain]]).
+- **Don't let the model choose what it shouldn't.** The list of funds isn't an argument: your code passes it in, so the model can't add a fund that isn't in the mandate.
+- **Every call is a round trip** to the model. A loop of tool calls needs a limit ([[Middleware in LangChain]]).
 
 ## Related
-[[Agents in LangChain]] · [[Tools in LangChain]] · [[Tools in LangGraph]] · [[The agent loop in LangChain]] · [[Schemas in LangChain]]
+[[LangChain Overview]] · [[The running example]] · [[What is a turn]] · [[Tools in LangChain]] · [[The agent loop in LangChain]] · [[Schemas in LangChain]]
 
-
+## My notes & questions

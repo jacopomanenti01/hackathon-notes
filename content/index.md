@@ -1,7 +1,7 @@
 ---
 tags: [index]
 created: 2026-10-30
-updated: 2026-11-02
+updated: 2026-11-03
 ---
 # Index
 
@@ -9,6 +9,7 @@ Notes on the ideas behind LangChain and LangGraph, explained on one small exampl
 
 ## Start here
 - [[LangChain Overview]] — a guided tour of LangChain, told as the story of one agentic portfolio system, with a link to each detail note
+- [[LangGraph Overview]] — the same system built by hand in LangGraph: every step a node, every connection an edge
 - [[LangChain or LangGraph]] — what each is good at, what each hides from you, and which pages to read for each
 
 ## Both libraries
@@ -34,15 +35,18 @@ Folder `LangChain/`. `create_agent` runs the loop for you.
 - [[Workflow in LangChain]] — agents in a line with `StateGraph`; other ways to combine agents
 
 ## LangGraph
-Folder `LangGraph/`. Every step is a node you draw; suggested reading order:
-- [[Workflow in LangGraph]] — the whole run as a graph: nodes, edges, `compile`
+Folder `LangGraph/`. Every step is a node you draw.
+
+**Start with [[LangGraph Overview]]**: a guided tour of the same system, built node by node, with a link to the detail note for each idea. Detail notes, in reading order:
 - [[State in LangGraph]] — one shared dictionary; replace vs reducers (`add_messages`)
-- [[Agents in LangGraph]] — hand-written LLM nodes
+- [[Workflow in LangGraph]] — the whole run as a graph: nodes, edges, `compile`, `invoke`
+- [[Agents in LangGraph]] — an agent is a node you write: read, build messages, call the model, return keys; the context
 - [[The agent loop in LangGraph]] — the model ⇄ tools loop, drawn in the graph; how it stops
-- [[Tools in LangGraph]] — `bind_tools` + `ToolNode`; hidden values; tool errors
-- [[Schemas in LangGraph]] — forms the model fills in; the correction loop
+- [[Tools in LangGraph]] — `bind_tools` + `ToolNode`; hidden inputs with `ToolRuntime`; tool errors
+- [[Runtime in LangGraph]] — the context: fixed values for the run that nodes and tools see, and the model doesn't
+- [[Schemas in LangGraph]] — a form the model must fill in; the correction loop
 - [[Branches in LangGraph]] — routers and conditional edges
-- [[Errors and retries in LangGraph]] — four things that go wrong and the guard for each
+- [[Errors and retries in LangGraph]] — tool errors, invalid answers, retry policies, your own limits, the recursion limit
 
 ## Working with Hermes
 - [[Hermes coding agent]] — how to start it, the files it reads, its skills, the commands, and how to steer it

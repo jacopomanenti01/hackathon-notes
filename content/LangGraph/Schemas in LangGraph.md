@@ -1,132 +1,88 @@
 ---
 tags: [note]
 topic: langgraph
-template_files: [src/systems/langgraph/schema.py, src/systems/langgraph/agents.py]
+sources:
+  - https://docs.langchain.com/oss/python/langchain/models
+  - https://docs.langchain.com/oss/python/langgraph/workflows-agents
 status: current
 created: 2026-10-30
-updated: 2026-10-30
+updated: 2026-11-03
 ---
 # Schemas in LangGraph
 
-> Binding a Pydantic schema as a tool the model *must* call **forces the format of its answer**: no free text, only the schema's fields. `ask_for_answer` does this, checks the answer, and sends back the errors until it's valid. It's the hand-written version of LangChain's `ToolStrategy`.
+> A schema is a description of the exact form an answer must take. Bound to the model as a tool it *must* call, it **forces** the form; checked by your node, it **rejects** a wrong answer and asks again.
 
-## Context
+## What it is
 
-On 31 January 2025, `analyst_signals` has the analyst's research notes and must give one signal per asset. The next node, `portfolio_manager`, relies on getting exactly that: every asset, and only `high`, `neutral` or `low`. Free text won't do:
+When the next step is code, not a person, a free-text answer won't do: code can't reliably read *"mostly equity, some bonds"*. A **schema** fixes the form of the answer. It does two jobs: it **tells the model** what to write, and it **checks** what the model wrote. LangChain does both with one parameter ([[Schemas in LangChain]]); in LangGraph you write the few lines yourself, inside a node.
 
-```text
-"SPX looks very strong, NDX is fine, I'd avoid rates."
-```
+## Its components
 
-That answer has three problems: "very strong" isn't an allowed value, assets are missing, and code can't read it reliably. So the node uses the `Analysis` schema, and the run looks like this:
+- **The schema**: the fields, their types, and their descriptions, which the model reads.
+- **Validators**: plain Python rules that check the content and raise an error with a precise message.
+- **Forcing the form**: the model is made to answer by filling in the schema, never in free text.
+- **The correction loop**: a failed check goes back to the model, which answers again, up to a maximum number of attempts.
 
-| Attempt | The model answers | The check says | Then |
-|---|---|---|---|
-| 1 | `{"SPX": "high", "NDX": "neutral"}` | `Missing: ['EUROSTR=', 'USDSOFR=', ...]` | the error goes back: "Your last answer was invalid: … Answer again. Attempts left: 4." |
-| 2 | every asset, valid values | passes | the node returns `signals` and `analyst_report` |
+## How LangGraph implements it
 
-## The schema: an instruction and a check
+- **The schema**: a Pydantic class. Its docstring and `Field(description=...)` tell the model what to write; its types and `@field_validator` methods check it.
+- **Forcing the form**: `model.bind_tools([Allocation], tool_choice="any")`. The schema is offered as a tool with no function behind it, and the model **must** call a tool, so its reply can only be the schema's fields. The arguments of that call *are* the answer.
+- **The check**: `Allocation.model_validate(reply.tool_calls[0]["args"])` runs every type check and validator, and raises a `ValidationError` if one fails.
+- **The correction loop**: a `for` loop inside the node. On failure, add the model's reply and a `ToolMessage` with the error, and call the model again. After the last attempt, raise an error.
+
+The loop runs **inside one node**, so its attempts are not graph steps and aren't stored in the state. The shortcut `model.with_structured_output(Allocation)` also returns an `Allocation`, but when the check fails it raises the error instead of sending it back to the model.
+
+## Example
+
+Take a strategist agent that turns research notes into the weights of three funds (equity, bond and cash). The next step is code that checks equity is at most 40%, so it needs a number for every fund:
 
 ```python
-# schema.py (shortened)
-class Analysis(BaseModel):
-    """One high, neutral, or low signal per asset and a concise rationale."""      # the model reads this
-    signals: dict[str, Literal["high", "neutral", "low"]] = Field(description="One signal for every asset")
-    rationale: str = Field(description="Concise rationale")
+from typing import Literal
+from pydantic import BaseModel, Field, field_validator
 
-    @field_validator("signals")
+class Allocation(BaseModel):
+    """How much of the portfolio goes into each fund, and why."""                   # the model reads this
+    weights: dict[Literal["equity", "bond", "cash"], float] = Field(description="A weight between 0 and 1 for every fund")
+    rationale: str
+
+    @field_validator("weights")
     @classmethod
-    def _every_asset(cls, signals):
-        validate_asset_names(signals)     # raises "Missing: [...]; unexpected: [...]"
-        return signals
+    def _every_fund(cls, weights):
+        missing = sorted({"equity", "bond", "cash"} - set(weights))
+        if missing:
+            raise ValueError(f"Every fund needs a weight; missing: {missing}")
+        return weights
 ```
 
-A schema does two jobs. Its docstring and field descriptions **tell the model** what to write. Its types and **validators** (`@field_validator`, plain Python) **check** what it wrote and raise a `ValueError` with a precise message. The same idea works in LangChain ([[Schemas in LangChain]]).
-
-## `ask_for_answer`: the form-filling loop
+The strategist's node forces the form, checks it, and asks again on an error:
 
 ```python
-# agents.py (shortened)
-model = llm.bind_tools([schema], tool_choice="required")       # 1. the form, as a tool it must call
-for attempt in range(AGENT_MAX_CORRECTIONS + 1):
-    reply = model.invoke(messages)                              # 2. the model fills it in
-    try:
-        if not reply.tool_calls:                                #    no call, or broken JSON
-            raise ValueError(f"call {schema.__name__} with your answer")
-        return schema.model_validate(reply.tool_calls[0]["args"])   # 3. check it
-    except ValueError as error:
-        messages.append(correction(error, attempt))             # 4. say what was wrong, ask again
-raise ValueError(f"{agent} gave no valid {schema.__name__}")    # out of attempts: the date fails
+from langchain.messages import HumanMessage, SystemMessage, ToolMessage
+from pydantic import ValidationError
+
+def strategist(state: PortfolioState) -> dict:
+    form = model.bind_tools([Allocation], tool_choice="any")              # it must fill in the form
+    messages = [SystemMessage("You are a portfolio strategist. Turn the research into weights."),
+                HumanMessage(state["notes"])]
+    for _ in range(3):                                                    # at most 3 attempts
+        reply = form.invoke(messages)
+        call = reply.tool_calls[0]
+        try:
+            return {"proposed_weights": Allocation.model_validate(call["args"]).weights}
+        except ValidationError as error:                                  # say what was wrong, ask again
+            messages += [reply, ToolMessage(f"Error: {error}\nFix your answer and try again.",
+                                            tool_call_id=call["id"])]
+    raise ValueError("no valid Allocation after 3 attempts")
 ```
 
-1. The schema is given to the model **as a tool** ([[Tools in LangGraph#A tool that runs nothing: a form|a form]]), and `tool_choice="required"` forces it to call it.
-2. The model "calls" the form. Its arguments are the answer.
-3. `model_validate` runs every type check and validator.
-4. On failure, a message with the error is appended, and the model answers again, up to `AGENT_MAX_CORRECTIONS` (4) times.
-
-The retries are a `for` loop **inside one node**. They don't add graph steps and aren't stored in the state.
-
-## Forcing the format, like in LangChain
-
-Steps 1–2 are what force the output format. The model gets one "tool", `Analysis`, and `tool_choice="required"` means it must call it. So its reply can only be `Analysis(signals=..., rationale=...)`, never a paragraph of text.
-
-The LangChain system does exactly the same thing, with one line instead of a loop ([[Schemas in LangChain]]):
-
-| | LangGraph: `ask_for_answer` | LangChain: `response_format` |
-|---|---|---|
-| how you ask for the format | `ask_for_answer(llm, "analyst_signals", prompt, Analysis)` | `create_agent(..., response_format=ToolStrategy(Analysis, handle_errors=True))` |
-| how the format is forced | the schema is bound as a tool the model must call | the same: `ToolStrategy` offers the schema as a tool |
-| invalid answer | the error goes back, up to `AGENT_MAX_CORRECTIONS` times | the error goes back (`handle_errors=True`) |
-| where you get the result | the return value: an `Analysis` | `result["structured_response"]`: an `Analysis` |
-| who writes the loop | you (`agents.py`, ~15 lines) | LangChain |
-
-Same schema, same mechanism, same result. In LangGraph you can read every step.
-
-## Same bind_tools, two uses
-
-A real tool and a structured answer go through the same mechanism. What you bind is the difference:
-
-| | A real tool | A structured answer |
-|---|---|---|
-| helper | `ask_with_tools` | `ask_for_answer` |
-| what you bind | a function: `bind_tools([get_asset_statistics])` | a schema with no function behind it: `bind_tools([Analysis], tool_choice="required")` |
-| what the model does | *asks* for the tool, when it decides to | *must* call it, and fills in the fields |
-| what runs it | a `ToolNode` in the graph | nothing: you read `reply.tool_calls[0]["args"]` |
-| what it fixes | nothing: the model may reply in text or call the tool | the **format** of the answer |
-| who uses it | `analyst` | `analyst_signals`, `portfolio_manager` |
-
-So a real tool needs **both** the schema and the node: the schema lets the model ask, and the node runs it ([[Tools in LangGraph]]). A structured answer needs only the schema, because the model's arguments *are* the answer.
-
-## Why not use the state's types?
-
-`PortfolioState` already declares `signals: dict[str, str]` ([[State in LangGraph]]). Couldn't that shape the model's answer? No, for two reasons:
-- **The model never sees it.** The state describes what *nodes* pass to each other. It's never sent to the LLM, so it can't tell the model what to write.
-- **Nothing checks it at run time.** A `TypedDict` is only a type hint. If a node returns `signals = "SPX looks strong"`, LangGraph stores it without complaint.
-
-| | `PortfolioState` (the state's types) | `Analysis` (the schema bound to the model) |
-|---|---|---|
-| who reads it | your nodes | the model |
-| checked at run time? | no | yes: types and validators |
-| what it's for | the hand-off between nodes | the model's answer |
-
-So the node still has to get a well-formed answer *from the model*, then copy it into the state. The schema-as-tool does the first part.
-
-## Who uses ask_for_answer, and why the analyst is split
-
-The analyst's work is two nodes:
-- **`analyst`** researches. It calls `ask_with_tools` with the *real* tool, loops with the `ToolNode`, and writes its notes in plain text, with no forced format ([[The agent loop in LangGraph]]).
-- **`analyst_signals`** fills in the form. It calls `ask_for_answer(..., Analysis)` on those notes and returns checked `signals`.
-
-**Could it be one node?** Yes: bind both, `llm.bind_tools([get_asset_statistics, Analysis])`, and treat an `Analysis` call as "done". That's essentially what `ToolStrategy` does inside LangChain's `create_agent` ([[Schemas in LangChain]]). The template keeps the two separate so each step stays simple: free research first, then one strictly checked answer.
-
-**And `with_structured_output`?** LangChain's `llm.with_structured_output(Analysis)` also returns an `Analysis` object. But when the answer fails validation it raises an error, instead of sending the error back to the model. That's why the template writes its own small loop.
+Its first answer gives weights for equity and bond only. The check fails with *"Every fund needs a weight; missing: ['cash']"*, the error goes back, and the second answer, equity 55%, bond 30%, cash 15%, passes. Both attempts happen in one `strategist` step.
 
 ## Watch out
-- **Error messages are prompts.** The model fixes only what the message tells it: "Missing: ['NDX']" works, "invalid" doesn't.
-- **Keep schemas simple** (flat dicts, enums). The model servers are strict about tool-call formats.
-- **Valid isn't good.** A schema checks shape and hard rules, not whether the signals make sense.
+- **Error messages are prompts.** The model fixes only what the message tells it: *"missing: ['cash']"* works, *"invalid"* doesn't.
+- **Valid isn't good.** A schema checks the form and hard rules, not whether the answer makes sense: 55% in equity passes it, and breaks the mandate ([[Branches in LangGraph]]).
+- **The state's types aren't a schema.** The `TypedDict` is never sent to the model and isn't checked at run time ([[State in LangGraph]]).
 
 ## Related
-[[Agents in LangGraph]] · [[Tools in LangGraph]] · [[Errors and retries in LangGraph]] · [[Schemas in LangChain]]
+[[LangGraph Overview]] · [[Agents in LangGraph]] · [[Tools in LangGraph]] · [[Errors and retries in LangGraph]] · [[Schemas in LangChain]]
 
-
+## My notes & questions

@@ -1,100 +1,69 @@
 ---
 tags: [note]
 topic: langgraph
-template_files: [src/systems/langgraph/workflow.py, src/systems/langgraph/agents.py, src/systems/langgraph/tools.py, src/config.py]
+sources:
+  - https://docs.langchain.com/oss/python/langgraph/fault-tolerance
+  - https://docs.langchain.com/oss/python/langgraph/use-graph-api
+  - https://docs.langchain.com/oss/python/langgraph/graph-api
+  - https://docs.langchain.com/oss/python/langgraph/errors/GRAPH_RECURSION_LIMIT
+  - https://docs.langchain.com/oss/python/langchain/tools
 status: current
 created: 2026-10-30
-updated: 2026-10-30
+updated: 2026-11-03
 ---
 # Errors and retries in LangGraph
 
-> Four different things can go wrong in a run, and the template has a different guard for each. Knowing which is which tells you where to look when a date fails.
+> Four different things can go wrong in an agent's run, and each needs its own guard. In LangGraph, you add every guard yourself: what you don't write doesn't happen.
 
-## Context
+## What it is
 
-On 31 January 2025, imagine four bad moments in the LangGraph system's run:
-1. The model asks for statistics with `lookback_days=1`, below the minimum of 5.
-2. `analyst_signals` answers with a missing asset.
-3. The model server times out while `portfolio_manager` is waiting.
-4. The analyst keeps asking for new windows and never stops.
+A model makes mistakes, a server fails, and a loop may never end. Each problem needs a different reaction:
+- if **the model can fix it** (a bad argument, an invalid answer), send the error *to the model*, as a message, and let it try again;
+- if **the model can't fix it** (a timeout, a server error), *run the step again*;
+- if **nothing stops it** (a model that keeps asking for more), *cap it* with a limit.
 
-None of them should crash the date immediately. Each has its own fix:
+## Its components
 
-| Problem | Guard | Where (in `src/`) | What happens | When it gives up |
-|---|---|---|---|---|
-| 1. a **tool call fails** (bad arguments, or the tool raises `ValueError`) | `tool_error` | `systems/langgraph/workflow.py:41`, `systems/langgraph/tools.py:63` | the error becomes the tool's result, and the model calls again ([[Tools in LangGraph]]) | the analyst's round limit (row 4) |
-| 2. an **answer is invalid** | corrections in `ask_for_answer` | `systems/langgraph/agents.py:84–98`; `AGENT_MAX_CORRECTIONS` = 4 in `config.py:11` | the error goes back, and the model answers again ([[Schemas in LangGraph]]) | after 4 corrections: the date fails |
-| 3. a **node raises** (timeout, server error) | `RetryPolicy` | `systems/langgraph/workflow.py:30`, used at lines 37, 44, 47, 52 | LangGraph waits and runs **the whole node** again | after 3 attempts: the date fails |
-| 4. the model **keeps calling tools** | round limit | `systems/langgraph/agents.py:113`, `:132` | the tool is no longer offered, so the model must answer ([[The agent loop in LangGraph]]) | — |
-| any loop with no other limit | `recursion_limit` | `systems/langgraph/workflow.py:73`; `RECURSION_LIMIT` = 40 in `config.py:14` | `GraphRecursionError` | immediately: the date fails |
+- **Tool errors**: a tool call with bad arguments, or a tool that raises an error.
+- **Invalid answers**: an answer that fails its schema ([[Schemas in LangGraph]]).
+- **Node failures**: a node raises, e.g. the model's server times out.
+- **Endless loops**: a model that never stops calling tools.
+- **The recursion limit**: the backstop for any loop nothing else has stopped.
 
-## Each guard in the code
+## How LangGraph implements it
 
-### 1. A tool call fails: `tool_error`
-```python
-# systems/langgraph/workflow.py:41: the ToolNode catches the error...
-graph.add_node("tools", ToolNode([get_asset_statistics], handle_tool_errors=tool_error))
+- **Tool errors**: the `ToolNode` turns the error into the tool's result, and the model calls again ([[Tools in LangGraph]]). By default it does this only for bad arguments; `handle_tool_errors=True` does it for every error the tool raises.
+- **Invalid answers**: the correction loop inside the node. On a failed check, the error goes back to the model, up to a maximum number of attempts; then the node raises.
+- **Node failures**: `graph.add_node(..., retry_policy=RetryPolicy(max_attempts=3))`, from `langgraph.types`. If the node raises, LangGraph waits (a little longer each time) and runs **the whole node** again. By default it retries network and server errors, but not errors that a second try won't fix, like a `ValueError`.
+- **Endless loops**: your own count in the model's node: after a maximum number of tool calls, stop binding the tools ([[The agent loop in LangGraph]]).
+- **The recursion limit**: `workflow.invoke(..., config={"recursion_limit": 30})` caps the number of graph steps in a run. When it's reached, LangGraph raises `GraphRecursionError` (*"Recursion limit of 30 reached without hitting a stop condition"*). Its default is 10,007, so on its own it won't stop a runaway loop for a long time: set your own.
 
-# systems/langgraph/tools.py:63: ...and this text becomes the tool's result
-def tool_error(error: ValueError | ToolInvocationError) -> str:
-    return f"Error: {error}\nFix the arguments and call the tool again."
-```
-It catches bad arguments (`ToolInvocationError`), and the `ValueError` the tool raises itself (`tools.py:40`: "No prices in the last N days; use a longer window"). The graph then goes back to `analyst`, which can call again.
+## Example
 
-### 2. An answer is invalid: the correction loop
-```python
-# systems/langgraph/agents.py:84–98 (ask_for_answer)
-model = llm.bind_tools([schema], tool_choice="required")
-messages = list(prompt)
-for attempt in range(AGENT_MAX_CORRECTIONS + 1):          # 4 corrections = 5 tries
-    reply = model.invoke(messages, config={"run_name": f"{agent}_llm"})
-    try:
-        if not reply.tool_calls:                            # no call, or broken JSON
-            raise ValueError(f"call {schema.__name__} with your answer")
-        return schema.model_validate(reply.tool_calls[0]["args"])   # validators run here
-    except ValueError as error:
-        messages.append(correction(error, attempt))         # the error goes back to the model
-raise ValueError(f"{agent} gave no valid {schema.__name__}")
-```
-`correction` (`agents.py:101`) writes the message: "Your last answer was invalid: … Answer again. Attempts left: N." Used by `analyst_signals` and `portfolio_manager`.
+Take a system that builds a portfolio from three funds (equity, bond and cash): a researcher with two tools, `get_returns(days)` (at most 365 days) and `get_volatility(fund)`, then a strategist that must give a weight to every fund. Imagine four bad moments, and the guard for each:
 
-### 3. A node raises: `RetryPolicy`
-```python
-# systems/langgraph/workflow.py:30, then on every LLM node (lines 37, 44, 47, 52)
-LLM_RETRY = RetryPolicy(max_attempts=3)
-graph.add_node("analyst", partial(analyst, llm=llm), retry_policy=LLM_RETRY)
-graph.add_node("analyst_signals", partial(analyst_signals, llm=llm), retry_policy=LLM_RETRY)
-graph.add_node("portfolio_manager", partial(portfolio_manager, llm=llm), retry_policy=LLM_RETRY)
-graph.add_node("risk_manager", partial(risk_manager, llm=llm), retry_policy=LLM_RETRY)
-```
-If the node raises, LangGraph waits a little (longer each time) and calls the node function again from the start, up to 3 attempts. It's for problems that a second try can fix: the network, an overloaded server. The plain-Python nodes (`risk_review`, `rebalance`) and `tools` have no retry policy.
+1. **The researcher asks for `days=500`.** The `ToolNode` sends back *"days: Input should be less than or equal to 365 … Please fix the error and try again."*, and the next call asks for 90 days.
+2. **The strategist forgets the Cash Fund.** Its node sends back *"Every fund needs a weight; missing: ['cash']"*, and the second answer passes. If it kept forgetting, the node would give up after 3 attempts with an error.
+3. **The model's server times out** during the strategist's call. Its retry policy runs the node again, from the start:
 
-### 4. The model keeps calling tools: the round limit
-```python
-# systems/langgraph/agents.py:113 and :132 (analyst)
-MAX_TOOL_ROUNDS = 4
-tools = [get_asset_statistics] if rounds < MAX_TOOL_ROUNDS else []   # no tools: it must answer
-```
+   ```python
+   from langgraph.types import RetryPolicy
 
-### Backstop: the recursion limit
-```python
-# systems/langgraph/workflow.py:73
-return graph.compile().with_config(recursion_limit=RECURSION_LIMIT)    # 40 node runs per date
-```
+   retry = RetryPolicy(max_attempts=3)
+   graph.add_node("researcher", researcher, retry_policy=retry)
+   graph.add_node("strategist", strategist, retry_policy=retry)
+   graph.add_node("writer", writer, retry_policy=retry)
+   ```
+4. **The researcher is never satisfied**: after 90 days it asks for 120, then 180, then 200… After 6 tool calls, its node stops binding the tools, so the model must write its notes with what it has.
 
-## Two kinds of error, two reactions
-
-- **The model can fix it** (bad arguments, invalid answer): send the error *to the model* as a message. That's rows 1 and 2.
-- **The model can't fix it** (network, server): *run the step again*. That's row 3.
-
-In a tool or a validator, raise `ValueError` with a clear message for anything the model can correct. Any other exception stops the date.
+And the recursion limit? The whole run normally takes 11 graph steps, and a limit of 11 already fails it. So set it with room to spare, e.g. `config={"recursion_limit": 30}`, and it will only fire for a loop nothing else stopped.
 
 ## Watch out
-- **Retries multiply.** One node with 3 attempts × 5 answers each can mean 15 model calls. Keep the limits small.
-- **A reply cut off at `max_tokens`.** Reasoning models (like `gpt-oss`) count their hidden reasoning towards `max_tokens`, so a reply can be cut off before it calls anything. `core/llm.py` then leaves `reply.tool_calls` empty. In `ask_for_answer`, that's an ordinary correction ("call Analysis with your answer"). In `analyst` it isn't caught: the cut-off reply counts as the final notes, possibly empty, and the graph moves on. If that happens, raise `max_tokens` in the notebook's `get_llm(...)`.
-- **Line numbers drift.** They're correct for the template as of 30 Oct 2026. Search for the names if they've moved.
-- **A failed date shows in Langfuse** as an error on that date's trace: open it to see which guard gave up.
+- **Retries multiply.** A node with 3 attempts, each with 3 answers, can mean 9 model calls. Keep each limit small.
+- **A retry reruns the whole node**, including what it did before it failed. Keep a node that calls a model free of other side effects.
+- **A failed run shows in your traces** as an error on that run: open it to see which guard gave up.
 
 ## Related
-[[Tools in LangGraph]] · [[Schemas in LangGraph]] · [[The agent loop in LangGraph]] · [[Workflow in LangGraph]] · [[Middleware in LangChain]]
+[[LangGraph Overview]] · [[Tools in LangGraph]] · [[Schemas in LangGraph]] · [[The agent loop in LangGraph]] · [[Workflow in LangGraph]] · [[Limits in LangChain]]
 
+## My notes & questions

@@ -1,75 +1,74 @@
 ---
 tags: [note]
 topic: langgraph
-template_files: [src/systems/langgraph/state.py]
+sources:
+  - https://docs.langchain.com/oss/python/langgraph/graph-api
+  - https://docs.langchain.com/oss/python/langgraph/use-graph-api
 status: current
 created: 2026-10-30
-updated: 2026-10-30
+updated: 2026-11-03
 ---
 # State in LangGraph
 
-> The state is one shared dictionary for the whole run. Each node reads it and returns only the keys it changes, and LangGraph merges them in.
+> The state is one shared dictionary for the whole run. Each node reads it and returns only the keys it changed, and LangGraph merges them in.
 
-## Context
+## What it is
 
-On 31 January 2025 ([[Workflow in LangGraph]]), seven nodes run one after the other, and none of them calls another. So how does `portfolio_manager` get the signals that `analyst_signals` produced?
+The nodes of a graph never call each other or pass arguments to each other ([[Workflow in LangGraph]]). So how does one node get what another produced? They all share one dictionary, the **state**. A node reads the keys it needs and returns only the keys it produced; LangGraph merges them in, and the rest of the state stays as it was.
 
-They all share one dictionary, the **state**. Here it is, filling up as the date runs *(values shortened)*:
+## Its components
 
-| After node | Keys it returned | The state now has |
-|---|---|---|
-| start (`core/run.py`) | `reporting_date: "2025-01-31"` | 1 key |
-| `analyst` and `tools` (several rounds) | `messages`: the research conversation | + `messages` |
-| `analyst_signals` | `signals`, `analyst_report` | + 2 |
-| `portfolio_manager` | `proposed_weights` (US at 25%), `portfolio_rationale` | + 2 |
-| `risk_review` | `risk_review: {approved: False, ...}` | + 1 |
-| `rebalance` | `approved_weights` (US at 20%), `risk_review` (updated) | + 1, 1 replaced |
-| `risk_manager` | `risk_summary` | + 1 |
+- **The keys**: declared once, with the type of each value. Only declared keys are kept.
+- **The updates**: what each node returns, a dict of only the keys it changed.
+- **The reducers**: for each key, how an update is combined with the old value. Without one, the new value **replaces** the old; with one, the two are **combined**, e.g. new messages are appended to the conversation.
 
-At the end, `core/` writes `approved_weights` to `weights.csv`, and `report.py` turns the rest into the PDF.
+## How LangGraph implements it
 
-## Declaring the keys
-
-The keys are declared once, in `state.py`, as a `TypedDict`: a dictionary type that lists its keys and their value types. `total=False` means a key may be missing, because each key only appears once its node has run.
+- **Declaring the keys**: a `TypedDict`, a dict whose keys and types are written down, given to `StateGraph(MyState)`. With `total=False`, a key may be missing until a node fills it in.
+- **Updating**: a node returns a dict, e.g. `{"notes": "..."}`. LangGraph merges it into the state, and the next node receives the merged state.
+- **Adding a reducer**: write the key's type as `Annotated[type, reducer]`. The reducer is a function of the old and the new value:
+  - `add_messages` appends new messages to a conversation (and replaces a message that has the same id);
+  - `operator.add` concatenates two lists, which is what you need when two nodes running *in parallel* write the same key: without a reducer, LangGraph raises an error.
+- **Reading the result**: `workflow.invoke(...)` returns the final state.
 
 ```python
-# state.py (shortened)
+from typing import Annotated, TypedDict
+from langchain.messages import AnyMessage
+from langgraph.graph.message import add_messages
+
+class MyState(TypedDict, total=False):
+    question: str                                          # replaced when written again
+    messages: Annotated[list[AnyMessage], add_messages]    # appended to
+```
+
+
+## Example
+
+Take a system that builds a portfolio from three funds (equity, bond and cash), with at most 40% in equity: a researcher with tools, a strategist, a risk check that may rebalance the weights, and a writer. Its state:
+
+```python
 class PortfolioState(TypedDict, total=False):
-    reporting_date: str                                     # core -> every node, and the tool
-    messages: Annotated[list[AnyMessage], add_messages]     # analyst <-> tools -> analyst_signals
-    signals: dict[str, str]                                 # analyst_signals -> portfolio_manager, PDF
-    approved_weights: dict[str, float]                      # risk_review or rebalance -> CSV (required)
-    ...
+    messages: Annotated[list[AnyMessage], add_messages]   # researcher <-> tools
+    notes: str                    # researcher -> strategist
+    proposed_weights: dict        # strategist -> risk_check
+    approved_weights: dict        # risk_check, then rebalance -> writer
+    risk_review: dict             # risk_check -> writer: was equity within the limit?
+    market_note: str              # writer -> the end
 ```
 
-The comment on each key says who writes it and who reads it, so the file doubles as a map of the system.
-
-## Replace or combine: reducers
-
-When a node returns a key that already exists, what happens to the old value?
-
-- **By default, it's replaced.** `rebalance` returns a new `risk_review`, and the old one is gone.
-- **With a reducer, the two are combined.** A **reducer** is a function, attached with `Annotated[type, function]`, that merges the old and new values. `messages` uses `add_messages`, so each round of the analyst loop *appends* its new messages instead of wiping the conversation:
-
-```python
-# analyst node: returns only the new reply...
-return {"messages": [reply]}
-# ...and add_messages adds it to the end of the existing list
-```
-
-Without the reducer, each round of the loop would erase the previous ones ([[The agent loop in LangGraph]]).
-
-You also need a reducer when two nodes running *in parallel* write the same key (e.g. `Annotated[list[str], operator.add]`). Otherwise LangGraph raises an error.
-
-## Compared with LangChain
-
-The LangChain system has two levels of state: the workflow's, and each agent's own, with the agent's conversation kept inside the agent ([[State in LangChain]]). Here there's **one** state: the analyst's conversation (`messages`) lives in it, next to the signals and weights.
+The comment on each key says who writes it and who reads it, so the class doubles as a map of the system. The state fills up as the run goes:
+1. the researcher's four [[What is a turn|turns]] add their requests and the tools' results to `messages`, one turn at a time: the reducer appends them. Its last reply also goes into `notes`;
+2. the strategist reads `notes` and writes `proposed_weights`: equity 55%, bond 30%, cash 15%;
+3. the risk check writes `approved_weights` (the same weights) and `risk_review` (equity over the limit);
+4. the rebalance step returns a new `approved_weights`, equity 40%, bond 40%, cash 20%, which **replaces** the old one;
+5. the writer reads both and writes `market_note`.
 
 ## Watch out
-- **Declare a key before using it.** A key a node returns that isn't in `PortfolioState` is silently dropped: no error, and the next node just doesn't find it.
-- **`approved_weights` is required.** `core/` writes it to `weights.csv`. Keep the keys `report.py` reads.
+- **Declare a key before you write it.** A key a node returns that isn't in the state is silently dropped: no error, and the next node just doesn't find it.
+- **A conversation needs its reducer.** Without `add_messages`, each turn would replace the whole conversation with its own new messages.
+- **Keep big data out of `messages`.** Every model call that reads it resends it all.
 
 ## Related
-[[Workflow in LangGraph]] · [[The agent loop in LangGraph]] · [[Agents in LangGraph]] · [[State in LangChain]]
+[[LangGraph Overview]] · [[Workflow in LangGraph]] · [[The agent loop in LangGraph]] · [[Agents in LangGraph]] · [[State in LangChain]]
 
-
+## My notes & questions

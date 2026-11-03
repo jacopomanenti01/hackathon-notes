@@ -4,6 +4,8 @@ topic: both
 sources:
   - https://docs.langchain.com/oss/python/langchain/agents
   - https://docs.langchain.com/oss/python/langchain/multi-agent/custom-workflow
+  - https://docs.langchain.com/oss/python/langgraph/overview
+  - https://docs.langchain.com/oss/python/langgraph/thinking-in-langgraph
 status: current
 created: 2026-11-02
 updated: 2026-11-02
@@ -39,22 +41,22 @@ They aren't rivals: `create_agent` **builds a LangGraph graph**, and a common se
 
 | LangChain | LangGraph |
 |---|---|
-| **[[LangChain Overview]]** (start here) | [[Workflow in LangGraph]] |
+| **[[LangChain Overview]]** (start here) | **[[LangGraph Overview]]** (start here) |
 | [[Agents in LangChain]] | [[State in LangGraph]] |
-| [[The agent loop in LangChain]] | [[Agents in LangGraph]] |
-| [[Tools in LangChain]] | [[The agent loop in LangGraph]] |
-| [[Runtime in LangChain]] | [[Tools in LangGraph]] |
-| [[Schemas in LangChain]] | [[Schemas in LangGraph]] |
-| [[Skills in LangChain]] | [[Branches in LangGraph]] |
-| [[Hooks in LangChain]] | [[Errors and retries in LangGraph]] |
-| [[Middleware in LangChain]] | |
-| [[Limits in LangChain]] | |
+| [[The agent loop in LangChain]] | [[Workflow in LangGraph]] |
+| [[Tools in LangChain]] | [[Agents in LangGraph]] |
+| [[Runtime in LangChain]] | [[The agent loop in LangGraph]] |
+| [[Schemas in LangChain]] | [[Tools in LangGraph]] |
+| [[Skills in LangChain]] | [[Runtime in LangGraph]] |
+| [[Hooks in LangChain]] | [[Schemas in LangGraph]] |
+| [[Middleware in LangChain]] | [[Branches in LangGraph]] |
+| [[Limits in LangChain]] | [[Errors and retries in LangGraph]] |
 | [[State in LangChain]] | |
 | [[Workflow in LangChain]] | |
 
 Both: [[What is a loop]], [[What is a tool]], [[What is a turn]].
 
 ## Related
-[[Agents in LangChain]] · [[Workflow in LangChain]] · [[Workflow in LangGraph]]
+[[LangChain Overview]] · [[LangGraph Overview]] · [[Agents in LangChain]] · [[Workflow in LangChain]] · [[Workflow in LangGraph]]
 
 ## My notes & questions

@@ -4,6 +4,7 @@ topic: general
 sources:
   - https://huggingface.co/learn/agents-course/unit1/tools
   - https://docs.langchain.com/oss/python/langchain/tools
+  - https://docs.langchain.com/oss/python/langgraph/workflows-agents
 status: current
 created: 2026-10-30
 updated: 2026-11-03
@@ -46,6 +47,13 @@ def get_volatility(fund: Literal["equity", "bond", "cash"]) -> dict:
     ...
 ```
 
+In LangGraph, the tool is written the same way, but you do the other two steps yourself: `model.bind_tools([...])` sends the descriptions to the model, and a `ToolNode` in the graph runs the calls ([[Tools in LangGraph]]):
+
+```python
+reply = model.bind_tools([get_volatility]).invoke(messages)    # the model may ask for it
+graph.add_node("tools", ToolNode([get_volatility]))             # the graph runs it
+```
+
 ## Example
 
 Take a researcher agent that must report how three funds (equity, bond and cash) have performed. It needs their returns, which it can't fetch itself, so it *writes* a request for the `get_returns` tool, and your program runs it:
@@ -64,11 +72,11 @@ sequenceDiagram
 A reply can hold **several** tool calls: the researcher can ask for `get_volatility("equity")` and `get_volatility("bond")` at once, and both run in the same [[What is a turn|turn]].
 
 ## Watch out
-- **The model can call it wrong**, e.g. `days=500` when the limit is 365. Check the arguments, and send the error back so the model can fix its call ([[Schemas in LangChain]]).
-- **Don't let the model choose what it shouldn't.** The list of funds isn't an argument: your code passes it in, so the model can't add a fund it shouldn't use ([[Runtime in LangChain]]).
-- **Every call is a round trip** to the model. A loop of tool calls needs a limit ([[Middleware in LangChain]]).
+- **The model can call it wrong**, e.g. `days=500` when the limit is 365. Check the arguments, and send the error back so the model can fix its call ([[Schemas in LangChain]], [[Tools in LangGraph]]).
+- **Don't let the model choose what it shouldn't.** The list of funds isn't an argument: your code passes it in, so the model can't add a fund it shouldn't use ([[Runtime in LangChain]]; in LangGraph, [[Tools in LangGraph]]).
+- **Every call is a round trip** to the model. A loop of tool calls needs a limit ([[Limits in LangChain]], [[Errors and retries in LangGraph]]).
 
 ## Related
-[[LangChain Overview]] · [[What is a turn]] · [[Tools in LangChain]] · [[The agent loop in LangChain]] · [[Schemas in LangChain]]
+[[LangChain Overview]] · [[LangGraph Overview]] · [[What is a turn]] · [[Tools in LangChain]] · [[Tools in LangGraph]] · [[The agent loop in LangChain]] · [[The agent loop in LangGraph]]
 
 ## My notes & questions

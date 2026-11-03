@@ -1,88 +1,73 @@
 ---
 tags: [note]
 topic: langgraph
-template_files: [src/systems/langgraph/tools.py, src/systems/langgraph/agents.py, src/systems/langgraph/workflow.py]
+sources:
+  - https://docs.langchain.com/oss/python/langchain/tools
+  - https://docs.langchain.com/oss/python/langgraph/workflows-agents
 status: current
 created: 2026-10-30
-updated: 2026-10-30
+updated: 2026-11-03
 ---
 # Tools in LangGraph
 
-> In LangGraph, a tool needs two things: `bind_tools` tells the model it exists, and the `ToolNode` in the graph runs it.
+> In LangGraph, a tool needs two things: `bind_tools` tells the model it exists, and a `ToolNode` in the graph runs it.
 
-## Context
+## What it is
 
-At the first step of the analyst's run ([[The agent loop in LangGraph]]), the model replies "call `get_asset_statistics` with 90 days". For that to work, three things must be true, as in any framework ([[What is a tool]]):
-1. **the model knows the tool exists**, what it returns and what `lookback_days` means;
-2. **something runs it** and gives the result back;
-3. **it only reads prices up to 31 January 2025** ([[The hackathon task#The rule that's easy to break: no look-ahead|no look-ahead]]).
+A model can't run code: it can only *ask* for a tool, and your program runs it and sends the result back ([[What is a tool]]). LangChain's `create_agent` does both halves for you. In LangGraph you do each one yourself, so each has its own line of code: one so the model knows the tool exists, and one so the graph runs it.
 
-In LangGraph, each of the three has its own line of code you can point to.
+## Its components
 
-## 1. The model knows: `bind_tools`
+- **The tool**: a function with a name, a description and typed arguments.
+- **Binding**: giving the model the tools' descriptions, so its reply can ask for them.
+- **The tools node**: a node that runs the calls in the model's last reply and adds the results to the conversation ([[The agent loop in LangGraph]]).
+- **Hidden inputs**: values the tool needs but the model must not choose, filled in by your code.
+- **Error handling**: what happens when a call fails.
 
-```python
-# agents.py, analyst
-reply = ask_with_tools(llm, "analyst", messages, [get_asset_statistics])
-# reply.tool_calls == [{"name": "get_asset_statistics", "args": {"lookback_days": 90}, "id": "c1"}]
+## How LangGraph implements it
 
-# agents.py: the helper is two lines
-def ask_with_tools(llm, agent, messages, tools):
-    model = llm.bind_tools(tools) if tools else llm
-    return model.invoke(messages, config={"run_name": f"{agent}_llm"})
-```
+- **The tool**: `@tool`, from `langchain.tools`. The function's name becomes the tool's name, its docstring the description, and its arguments the input schema. `@tool(args_schema=...)` gives a Pydantic class instead, with limits on the values ([[Schemas in LangGraph]]).
+- **Binding**: `model.bind_tools([...])`, inside the model's node ([[Agents in LangGraph]]). The reply's `tool_calls` lists what it asks for, each with an `id`. Nothing has run yet.
+- **The tools node**: `ToolNode([...])`, from `langgraph.prebuilt`. It checks each call's arguments, runs the function, and adds each result as a `ToolMessage` with the call's `id`.
+- **Hidden inputs**: an argument `runtime: ToolRuntime` is left out of the description the model sees, and `ToolNode` fills it in:
+  - `runtime.context`: the run's fixed values, passed with `workflow.invoke(..., context=...)` ([[Runtime in LangGraph]]);
+  - `runtime.state`: the graph's state.
+- **Error handling**: `ToolNode(..., handle_tool_errors=...)`:
+  - by default, only **bad arguments** are caught: the error goes back to the model as the tool's result, and the model can call again;
+  - any other error raised inside the tool stops the run, unless you pass `handle_tool_errors=True` (every error goes back), or your own function that writes the message.
 
-`bind_tools` attaches the tool's description to every call of this model. The description is built by `@tool` from the function's name, docstring and input schema (`StatisticsInput`: an integer from 5 to 3650). The reply is a **request**, and nothing has run yet.
+## Example
 
-## 2. Something runs it: `ToolNode`
-
-```python
-# workflow.py
-graph.add_node("tools", ToolNode([get_asset_statistics], handle_tool_errors=tool_error))
-```
-
-`ToolNode` is a prebuilt node. It takes the tool calls in the last message, checks the arguments against the schema, runs the function, and adds each result as a `ToolMessage` with the call's `id`, so the model knows which request it answers. The graph then goes back to `analyst`.
-
-So the tool is listed **twice**: in `bind_tools`, so the model can ask for it, and in `ToolNode`, so the graph can run it. Forget the second, and the model asks for a tool nobody runs. It's not "a node *or* a schema": a real tool needs both ([[Schemas in LangGraph#Same bind_tools, two uses|same `bind_tools`, two uses]]).
-
-## 3. Only data up to the date: `runtime.state`
+Take a researcher agent that measures the returns and risk of three funds (equity, bond and cash). The funds come from a **mandate** the model must not change, so they aren't an argument: the tool reads them from the context.
 
 ```python
-# tools.py (shortened)
-@tool(args_schema=StatisticsInput)
-def get_asset_statistics(lookback_days: int, runtime: ToolRuntime) -> dict:
-    """Mean daily return, volatility and a Sharpe-like score for every asset, ..."""
-    end = runtime.state["reporting_date"]          # "2025-01-31", from the graph's state
-    prices = read_assets(end_date=end)
+from langchain.tools import ToolRuntime, tool
+from pydantic import BaseModel, Field
+
+class ReturnsInput(BaseModel):
+    days: int = Field(ge=5, le=365, description="How many past days to measure, from 5 to 365")
+
+@tool(args_schema=ReturnsInput)
+def get_returns(days: int, runtime: ToolRuntime[Mandate]) -> dict:
+    """Total return of every fund in the mandate over the last `days` days, in %."""
+    return {f: RETURNS[f] for f in runtime.context.funds}       # the funds: hidden from the model
 ```
 
-The `runtime` parameter is hidden from the model. `ToolNode` fills it in, and `runtime.state` is the graph's state ([[State in LangGraph]]). So the model picks the window, but never the date.
-
-## When a call fails: `tool_error`
-
-If the model sends `lookback_days=1`, the schema rejects it. Instead of crashing the run, `ToolNode` calls `tool_error`, and its text becomes the tool's result:
+The tool is listed **twice**: once where the model is called, and once in the graph.
 
 ```python
-def tool_error(error: ValueError | ToolInvocationError) -> str:
-    return f"Error: {error}\nFix the arguments and call the tool again."
+reply = model.bind_tools([get_returns, get_volatility]).invoke(messages)   # in the researcher node
+graph.add_node("tools", ToolNode([get_returns, get_volatility]))           # in the graph
 ```
 
-The model reads the error and calls again with a valid value. Only the error types in the annotation are caught: bad arguments (`ToolInvocationError`), and a `ValueError` the tool raises itself. Anything else stops the date.
+The model's first call asks for `days=500`. The schema rejects it, and the `ToolNode` sends the error back as the result: *"days: Input should be less than or equal to 365 … Please fix the error and try again."*. In the next [[What is a turn|turn]] the model asks for `days=90`, and gets the returns of all three funds without ever naming them: equity +4%, bond +1%, cash +0.5%.
 
-## A tool that runs nothing: a form
-
-You can also bind a **Pydantic schema** instead of a function, and force the model to call it (`tool_choice="required"`). Then the arguments the model writes *are* its answer, and there's nothing to run, so no `ToolNode` is needed. That's how `ask_for_answer` gets answers in a fixed shape ([[Schemas in LangGraph]]).
-
-| Use | What you bind | Needs a `ToolNode`? |
-|---|---|---|
-| fetch data or act | a function (`get_asset_statistics`) | yes |
-| an answer in a fixed shape | a schema (`Analysis`) | no: read `reply.tool_calls[0]["args"]` |
-
-## Adding your own tool
-1. Its input schema in `schema.py`, and the function with `@tool(args_schema=...)` in `tools.py`. Read the date from `runtime.state["reporting_date"]`, and pass it as `end_date=` to the data readers.
-2. Add it to the `tools` list `analyst` passes to `ask_with_tools` **and** to `ToolNode([...])` in `workflow.py`.
-3. Inside the tool, `raise ValueError("...")` for input the model can fix: `tool_error` sends it back.
+## Watch out
+- **Bound but not in the `ToolNode`** (or the other way round): the model asks for a tool nobody runs. List each tool in both places.
+- **Errors inside the tool stop the run by default.** If the model could fix it (e.g. "use a longer window"), raise a clear error and set `handle_tool_errors=True` ([[Errors and retries in LangGraph]]).
+- **Calling a tool by hand** fails if it needs a runtime: `ToolNode` fills it in only inside the graph.
 
 ## Related
-[[What is a tool]] · [[The agent loop in LangGraph]] · [[Schemas in LangGraph]] · [[Tools in LangChain]]
+[[LangGraph Overview]] · [[What is a tool]] · [[Runtime in LangGraph]] · [[The agent loop in LangGraph]] · [[Agents in LangGraph]] · [[Schemas in LangGraph]] · [[Tools in LangChain]]
 
+## My notes & questions

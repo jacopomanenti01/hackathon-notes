@@ -1,74 +1,79 @@
 ---
 tags: [note]
 topic: langgraph
-template_files: [src/systems/langgraph/agents.py, src/systems/langgraph/prompts.py]
+sources:
+  - https://docs.langchain.com/oss/python/langgraph/workflows-agents
+  - https://docs.langchain.com/oss/python/langgraph/graph-api
+  - https://docs.langchain.com/oss/python/langchain/models
+  - https://docs.langchain.com/oss/python/langchain/messages
 status: current
 created: 2026-10-30
-updated: 2026-10-30
+updated: 2026-11-03
 ---
 # Agents in LangGraph
 
-> In the LangGraph system, an agent is a node you write yourself: a function that builds the messages, calls the model, and turns the reply into state keys.
+> In LangGraph, an agent is a node you write yourself: a function that builds the messages, calls the model, and turns the reply into state keys.
 
-## Context
+## What it is
 
-On 31 January 2025, the portfolio manager's job is: *"here are the signals for every asset; give a weight to each."* In the LangChain system, `create_agent` would handle this ([[Agents in LangChain]]). Here, the `portfolio_manager` node does every step itself, in plain Python:
+A model on its own answers once, from what it already knows. An **agent** is a model that can use tools in a loop: ask for something, read the result, decide again, until it answers ([[What is a loop]]). LangGraph has no agent class to configure. You write the agent as a node, and if it uses tools, you draw its loop in the graph ([[The agent loop in LangGraph]]). Nothing is hidden: every message the model receives is built in front of you.
 
-1. **Read** what it needs from the state: the date, the signals, the analyst's rationale.
-2. **Build the messages**: a `SystemMessage` (the role, from `prompts.py`) and a `HumanMessage` (the data, as JSON).
-3. **Call the model**, and check the answer against the `Allocation` form.
-4. **Return** the result as state keys: `proposed_weights` and `portfolio_rationale`.
+## Its components
 
-```python
-# agents.py (shortened)
-def portfolio_manager(state, llm):
-    data = {"reporting_date": state["reporting_date"], "signals": state["signals"],
-            "analyst_rationale": state["analyst_report"]}                       # 1. read
-    prompt = [SystemMessage(content=PORTFOLIO_MANAGER),
-              HumanMessage(content=json.dumps(data))]                           # 2. messages
-    allocation = ask_for_answer(llm, "portfolio_manager", prompt, Allocation)   # 3. call + check
-    return {"proposed_weights": allocation.normalized(),
-            "portfolio_rationale": allocation.rationale}                         # 4. state keys
-```
+An agent node does four things, in plain Python:
+1. **read** what it needs from the state ([[State in LangGraph]]), and the fixed values of the run from the context;
+2. **build the messages**: a system message (its role and rules) and the input, or the conversation so far;
+3. **call the model**, in one of three ways (below);
+4. **return** the reply as state keys.
 
-Nothing is hidden: every message the model receives is built in front of you.
+The way you call the model decides what can come back:
+- **plain**: `model.invoke(messages)` returns text;
+- **with tools**: `model.bind_tools(tools).invoke(messages)` returns text **or** tool calls, which a `ToolNode` then runs ([[Tools in LangGraph]]);
+- **with a forced form**: bind a schema the model must fill in, and you get an answer in a fixed shape, which you check ([[Schemas in LangGraph]]).
 
-## Three ways to call the model
+## How LangGraph implements it
 
-The template has three small helpers in `agents.py`, and every LLM node uses one of them. They differ in **what is bound to the model**, and so in what comes back:
+- **The node**: a function `def agent(state, runtime) -> dict`. LangGraph passes the state, and the `runtime`, if the function asks for it.
+- **The context**: the fixed values of a run, which the model must not choose (the rules, the inputs it works on). Declare their shape with `StateGraph(..., context_schema=Mandate)`, pass them with `workflow.invoke(..., context=...)`, and read them in the node as `runtime.context`. Type the argument as `runtime: Runtime[Mandate]` (from `langgraph.runtime`) ([[Runtime in LangGraph]]).
+- **The messages**: `SystemMessage` and `HumanMessage` from `langchain.messages`. The model reads only these: whatever isn't in a message, it doesn't know.
+- **Adding it to the graph**: `graph.add_node("name", agent)`, with a `retry_policy` if the model's server may fail ([[Errors and retries in LangGraph]]).
 
-| Helper | What is bound | The reply | Then | Who uses it |
-|---|---|---|---|---|
-| `ask_for_text` | nothing | text | the node uses the text | `risk_manager`: the explanation for the PDF |
-| `ask_with_tools` | real tools (functions) | text **or** tool calls | the graph's `tools` node runs the calls, then comes back ([[The agent loop in LangGraph]]) | `analyst` |
-| `ask_for_answer` | a Pydantic schema, as a tool the model **must** call | an object of that schema (`Analysis`, `Allocation`) | checked; a wrong answer is sent back with the error ([[Schemas in LangGraph]]) | `analyst_signals`, `portfolio_manager` |
+## Example
 
-The last row is a **forced output format**. The model can't reply in free text: it must fill in the schema's fields. This is the same thing `response_format=ToolStrategy(Analysis)` does in the LangChain system ([[Agents in LangChain]]), written out by hand.
+Take a system that builds a portfolio from three funds (equity, bond and cash), under a **mandate**: those funds, and at most 40% in equity. The simplest agent is the writer, which explains the approved weights in a short market note:
 
 ```python
-# agents.py (shortened)
-summary  = ask_for_text(llm, "risk_manager", prompt)                         # free text
-reply    = ask_with_tools(llm, "analyst", messages, [get_asset_statistics])  # text or tool calls
-analysis = ask_for_answer(llm, "analyst_signals", prompt, Analysis)          # forced format
+from langchain.messages import HumanMessage, SystemMessage
+
+def writer(state: PortfolioState) -> dict:
+    reply = model.invoke([
+        SystemMessage("Write a short market note explaining the portfolio."),           # 2. messages
+        HumanMessage(f"{state['approved_weights']} {state['risk_review']}"),            # 1. read
+    ])                                                                                   # 3. call
+    return {"market_note": reply.content}                                               # 4. state keys
 ```
 
-## Why the analyst is split in two
+The researcher, which measures the funds with tools, also reads the mandate from the context, and binds its tools:
 
-The analyst's work runs in two nodes:
-- **`analyst`** researches: it calls `get_asset_statistics` as often as it needs, then writes its notes in plain text;
-- **`analyst_signals`** takes those notes and the statistics, and fills in the `Analysis` form: one signal per asset.
+```python
+from langgraph.runtime import Runtime
 
-Separating them keeps each step simple. Why the form is a schema bound to the model, and not the state's types, and how the two could be one node: [[Schemas in LangGraph#Who uses ask_for_answer, and why the analyst is split|Schemas in LangGraph]].
+def researcher(state: PortfolioState, runtime: Runtime[Mandate]) -> dict:
+    funds = ", ".join(runtime.context.funds)                      # fixed for the run
+    system = SystemMessage(f"You are a market researcher. The funds: {funds}.")
+    reply = model.bind_tools([get_returns, get_volatility]).invoke([system, *state["messages"]])
+    if reply.tool_calls:
+        return {"messages": [reply]}                              # the tools node runs them next
+    return {"messages": [reply], "notes": reply.content}          # done: the notes
+```
 
-## The agents' memory
-
-A hand-written agent sees **only the messages its node builds**. `portfolio_manager` never sees the analyst's conversation, only the keys `signals` and `analyst_report` from the state ([[State in LangGraph]]). Each LLM node starts from a fresh prompt.
+The writer never sees the researcher's conversation: its prompt holds only the two keys it reads, the approved weights (equity 40%, bond 40%, cash 20%) and the risk review (equity was cut from 55%). Each agent starts from the messages its node builds, and nothing else.
 
 ## Watch out
-- **Network errors are handled by the graph, not the node.** Each LLM node is added with `retry_policy=LLM_RETRY`, which reruns it on a timeout or server error ([[Errors and retries in LangGraph]]).
-- **Give the model what it needs, in the message.** If a node needs a new piece of information, add it to the `data` dictionary. The model knows nothing else.
+- **Give the model what it needs, in a message.** If an agent needs a new piece of information, put it in the messages its node builds: the model knows nothing else.
+- **Server errors stop the node.** Add a `retry_policy` to each node that calls a model.
 
 ## Related
-[[Workflow in LangGraph]] · [[The agent loop in LangGraph]] · [[Schemas in LangGraph]] · [[State in LangGraph]] · [[Agents in LangChain]]
+[[LangGraph Overview]] · [[The agent loop in LangGraph]] · [[Tools in LangGraph]] · [[Runtime in LangGraph]] · [[Schemas in LangGraph]] · [[State in LangGraph]] · [[Agents in LangChain]]
 
-
+## My notes & questions

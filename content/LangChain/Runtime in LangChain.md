@@ -80,6 +80,6 @@ The model asks for `get_returns(days=90)` and gets the returns of all three fund
 - **Calling a tool by hand** (outside an agent) fails if it needs a runtime: LangChain fills it in only inside the agent ([[The agent loop in LangChain]]).
 
 ## Related
-[[LangChain Overview]] · [[Tools in LangChain]] · [[Middleware in LangChain]] · [[Hooks in LangChain]] · [[State in LangChain]] · [[Agents in LangChain]]
+[[LangChain Overview]] · [[Tools in LangChain]] · [[Middleware in LangChain]] · [[Hooks in LangChain]] · [[State in LangChain]] · [[Agents in LangChain]] · [[Runtime in LangGraph]]
 
 ## My notes & questions

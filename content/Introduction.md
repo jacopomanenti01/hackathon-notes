@@ -1,5 +1,6 @@
 ---
 tags: [note, overview]
+aliases: [index]
 topic: general
 sources:
   - https://huggingface.co/learn/agents-course/unit1/tools

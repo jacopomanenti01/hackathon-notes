@@ -220,7 +220,10 @@ A graph isn't the only way to combine agents. You could also let a main agent ca
 
 ## Where to go from here
 
-The detail notes, in the order this tour introduced them:
+> [!tip] Next read: [[LangChain or LangGraph]]
+> Now that you've seen how LangChain builds an agent, compare it with LangGraph, where you write every step of the loop yourself. It helps you choose which library to build with.
+
+Then go deeper into each part, with the detail notes in the order this tour introduced them:
 - [[Agents in LangChain]]
 - [[The agent loop in LangChain]]
 - [[Tools in LangChain]]
@@ -234,8 +237,6 @@ The detail notes, in the order this tour introduced them:
 - [[Workflow in LangChain]]
 
 The three general notes, [[What is a loop]], [[What is a turn]] and [[What is a tool]], explain the ideas behind them without any library.
-
-And if you're still deciding whether to build with LangChain at all, [[LangChain or LangGraph]] compares it with writing every step yourself.
 
 ## Related
 [[LangChain or LangGraph]] · [[What is a loop]] · [[What is a tool]] · [[What is a turn]]

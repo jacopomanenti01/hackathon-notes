@@ -8,7 +8,7 @@ updated: 2026-11-02
 Notes on the ideas behind LangChain and LangGraph, explained on one small example. Decks are in `Slides/`.
 
 ## Start here
-- [[The running example]] — three agents build a portfolio from three made-up funds: researcher → strategist → risk check → writer, step by step. Every note builds on it.
+- [[LangChain Overview]] — a guided tour of LangChain, told as the story of one agentic portfolio system, with a link to each detail note
 - [[LangChain or LangGraph]] — what each is good at, what each hides from you, and which pages to read for each
 
 ## Both libraries
@@ -28,6 +28,7 @@ Folder `LangChain/`. `create_agent` runs the loop for you.
 - [[Schemas in LangChain]] — instruction + check: tool inputs, the answer's form, the context
 - [[Skills in LangChain]] — methods in their own files: in the system prompt, or loaded on demand
 - [[Hooks in LangChain]] — the moments in the loop where your code runs; node-style vs wrap-style
+- [[Limits in LangChain]] — model calls, tool calls, recursion: what each limit counts, and what happens when it's reached
 - [[Middleware in LangChain]] — your code in the loop: built-in, decorator or class; guardrails and limits
 - [[State in LangChain]] — the workflow's state vs each agent's state; adding keys
 - [[Workflow in LangChain]] — agents in a line with `StateGraph`; other ways to combine agents

@@ -6,28 +6,28 @@ sources:
   - https://docs.langchain.com/oss/python/langchain/middleware/custom
 status: current
 created: 2026-10-30
-updated: 2026-11-02
+updated: 2026-11-03
 ---
 # Hooks in LangChain
 
 > A hook is a named moment in the agent's loop, like "before each model call" or "after the agent answers", where LangChain calls your function.
 
-## Context
+## What it is
 
-`create_agent` runs the loop for you ([[The agent loop in LangChain]]), so there's nowhere to put your own `if`. In [[The running example]] we still need code to run *inside* the strategist's run: after it answers, the risk check must look at the weights. Hooks are the moments where that code can run.
+`create_agent` runs the agent loop for you ([[The agent loop in LangChain]]), so there's no place in it for your own `if`. Instead, the loop stops at fixed moments and calls any function you registered for that moment. Those moments are **hooks**. The code you attach to them is middleware ([[Middleware in LangChain]]).
 
-Here is the strategist's run as a timeline, with the hooks it passes through:
+## Its components
 
-| Moment in the run | Hook |
-|---|---|
-| the strategist starts | `before_agent` |
-| just before each model call | `before_model` |
-| around each model call (the call happens inside) | `wrap_model_call` |
-| the model has replied: turn 1's weights (rejected), then turn 2's | `after_model` |
-| around each tool call, if any | `wrap_tool_call` |
-| the strategist has its final answer | `after_agent`: **the risk check runs here** |
+There are six hooks, of two kinds:
 
-The middle rows repeat on every [[What is a turn|turn]]: the strategist passes `before_model`, `wrap_model_call` and `after_model` twice.
+| Hook | When it runs | Kind |
+|---|---|---|
+| `before_agent` | once, when the agent starts | node-style |
+| `before_model` | before each model call | node-style |
+| `wrap_model_call` | around each model call (the call happens inside) | wrap-style |
+| `after_model` | after each model reply | node-style |
+| `wrap_tool_call` | around each tool call | wrap-style |
+| `after_agent` | once, when the agent has its final answer | node-style |
 
 ```mermaid
 flowchart LR
@@ -36,13 +36,21 @@ flowchart LR
     AM -->|answer| AA["after_agent"]
 ```
 
-## Two kinds of hook
+The middle hooks repeat on every [[What is a turn|turn]].
 
-**Node-style hooks** (`before_agent`, `before_model`, `after_model`, `after_agent`) run *between* steps. Your function receives the agent's **state** (the messages so far, plus any keys you added) and returns a dict of keys to update, or `None`.
+## How LangChain implements it
 
-**Wrap-style hooks** (`wrap_model_call`, `wrap_tool_call`) run *around* one call. Your function receives the **request** (messages, prompt, tools) and a `handler`, the function that makes the call. You decide what happens: change the request, call `handler` once, call it again, or not at all.
+| | Node-style hooks | Wrap-style hooks |
+|---|---|---|
+| **Run** | *between* steps | *around* one call |
+| **Your function receives** | the agent's state ([[State in LangChain]]) and the runtime ([[Runtime in LangChain]]) | the request (messages, prompt, tools) and a `handler`, the function that makes the call |
+| **It returns** | a dict of keys to update, or `None` | the call's result: you decide whether to call `handler` once, again, or not at all |
+| **Good for** | reading or updating the state, stopping the run | retrying, changing the request, timing, refusing a call |
+| **Decorators** | `@before_agent`, `@before_model`, `@after_model`, `@after_agent` | `@wrap_model_call`, `@wrap_tool_call`, `@dynamic_prompt` (a shortcut that only changes the prompt) |
 
-## Example
+Two more rules:
+- **Stopping early.** A node-style hook can end the run by returning `{"jump_to": "end"}`, if it declares `can_jump_to=["end"]`.
+- **Order.** With `middleware=[a, b]`, `before_*` hooks run `a` then `b`, `after_*` hooks run `b` then `a`, and `a`'s wrap hook wraps `b`'s.
 
 ```python
 import time
@@ -61,14 +69,24 @@ def timed(request, handler):
     return response
 ```
 
-Use a **wrap** hook when you need the call itself (retry it, change the prompt, time it). Use a **node** hook when you only read or update the state.
+## Example
+
+Take a strategist agent that proposes a portfolio's weights across three funds, under a limit of at most 40% in equity. Its run takes two [[What is a turn|turns]]: its first answer is rejected, its second passes. Here are the hooks it passes through:
+
+| Moment in the run | Hook | What could run there |
+|---|---|---|
+| the strategist starts | `before_agent` | check the request |
+| before turn 1's model call | `before_model` | count the calls made so far |
+| around turn 1's model call | `wrap_model_call` | add the mandate to the prompt; retry if the provider fails |
+| the model has replied: an answer missing a fund (rejected) | `after_model` | |
+| turn 2: the same three hooks again | | |
+| the strategist has a valid answer: equity 55% | `after_agent` | the risk check: cap equity at 40% |
 
 ## Watch out
-- **Order.** With `middleware=[a, b]`, `before_*` hooks run `a` then `b`, `after_*` hooks run `b` then `a`, and `a`'s wrap hook wraps `b`'s.
-- **Stopping early.** A node hook can end the run by returning `{"jump_to": "end"}`, if it declares `can_jump_to=["end"]`.
 - **Every-turn hooks run a lot.** Keep `before_model` and `wrap_model_call` fast.
+- **Pick the right kind.** If you need the call itself (retry it, change it), use a wrap-style hook; a node-style hook can't touch the call.
 
 ## Related
-[[LangChain Overview]] · [[The running example]] · [[Middleware in LangChain]] · [[The agent loop in LangChain]] · [[State in LangChain]] · [[What is a turn]]
+[[LangChain Overview]] · [[Middleware in LangChain]] · [[The agent loop in LangChain]] · [[State in LangChain]] · [[What is a turn]]
 
 ## My notes & questions

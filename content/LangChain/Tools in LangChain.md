@@ -7,19 +7,46 @@ sources:
   - https://huggingface.co/learn/agents-course/unit1/tools
 status: current
 created: 2026-10-30
-updated: 2026-11-02
+updated: 2026-11-03
 ---
 # Tools in LangChain
 
 > You write a tool as a normal Python function with `@tool`, give it to `create_agent`, and the agent runs it whenever the model asks.
 
-## Context
+## What it is
 
-In [[The running example]], the researcher asks for `get_returns(days=90)`, and "our program runs it". Two questions come out of that:
-- how does the model know the tool exists, and what `days` means?
-- the result covers the Equity, Bond and Cash funds, but the model never named them. Where does the list of funds come from?
+A **tool** is a function the model can't run but can *ask* you to run: the model writes a request (this tool, with these arguments), your program runs it, and the result goes back to the model ([[What is a tool]]). This note is about how you write tools in LangChain, and what happens when a call goes wrong.
 
-## Defining the tool
+## Its components
+
+| Component | What it is | Seen by the model? |
+|---|---|---|
+| **name** | how the model refers to the tool | yes |
+| **description** | what the tool does and when to use it | yes |
+| **arguments** | the inputs the model fills in, with their types and limits | yes |
+| **hidden inputs** | values your code provides, like a list of funds ([[Runtime in LangChain]]) | no |
+| **result** | what the function returns, sent back to the model | yes, after the call |
+
+## How LangChain implements it
+
+| Piece | Where it comes from |
+|---|---|
+| `@tool` | turns a Python function into a tool |
+| name | the function's name |
+| description | the function's docstring |
+| arguments | the type hints, or a Pydantic schema passed as `@tool(args_schema=...)` ([[Schemas in LangChain]]) |
+| hidden inputs | a `runtime: ToolRuntime[...]` argument, filled in by LangChain and never shown to the model |
+| giving it to the agent | `create_agent(model, tools=[...])` |
+
+`create_agent` then sends the tool descriptions with every model call, runs the tools the model asks for, and adds the results to the conversation ([[The agent loop in LangChain]]).
+
+**When a call goes wrong:**
+- **bad arguments** (outside the schema): the tool doesn't run, and the error goes back to the model as the tool's result, so it can fix its call;
+- **an error inside the function** (e.g. a database is down): the agent stops, unless you add middleware that turns errors into messages (`ToolErrorMiddleware`) or retries the call (`ToolRetryMiddleware`) ([[Middleware in LangChain]]).
+
+## Example
+
+Take a researcher agent that measures the returns of three funds (equity, bond and cash). Its tool:
 
 ```python
 from langchain.tools import tool, ToolRuntime
@@ -33,26 +60,13 @@ def get_returns(days: int, runtime: ToolRuntime[Mandate]) -> dict:
     """Total return of every fund in the mandate over the last `days` days, in %."""
     funds = runtime.context.funds    # ("equity", "bond", "cash"), set by our code
     ...
-```
 
-`@tool` turns the function into the description the model reads ([[What is a tool]]):
-- the **name** is the function's name;
-- the **description** is the docstring, so write it for the model: what the tool returns and when to use it;
-- the **arguments** come from the schema: `days`, an integer from 5 to 365, with its description ([[Schemas in LangChain]]).
-
-The `runtime` argument is **hidden from the model**: LangChain fills it in when it runs the tool, with the mandate your code passed in. So the model chooses *how many days*, but never *which funds*. What the runtime holds, and how to pass it, is in [[Runtime in LangChain]].
-
-## Giving it to the agent
-
-```python
 researcher = create_agent(model, tools=[get_returns, get_volatility], context_schema=Mandate, ...)
 ```
 
-That one argument does the rest: `create_agent` sends the tool descriptions with every model call, runs the tools the model asks for, and sends the results back ([[The agent loop in LangChain]]).
+The model reads the name `get_returns`, the docstring, and `days` (an integer from 5 to 365). It never sees `runtime`, so it chooses *how many days*, never *which funds*.
 
-## When a call goes wrong
-
-At turn 1 the model asks for `days=500`. The arguments don't match the schema, so **the tool doesn't run**. LangChain sends the error back to the model as the tool's result:
+On its first [[What is a turn|turn]], the model asks for `days=500`. The arguments don't match the schema, so the tool doesn't run, and LangChain sends back:
 
 ```text
 Error invoking tool 'get_returns' with kwargs {'days': 500} with error:
@@ -60,16 +74,14 @@ Error invoking tool 'get_returns' with kwargs {'days': 500} with error:
  Please fix the error and try again.
 ```
 
-At turn 2 the model reads it and asks for `days=90`.
-
-That only covers **bad arguments**. If the function itself raises an error (say, the price database is down), the agent stops. To turn those errors into messages too, add middleware: `ToolErrorMiddleware`, or `ToolRetryMiddleware` to try again ([[Middleware in LangChain]]).
+On the next turn, the model asks for `days=90` and gets equity +4%, bond +1%, cash +0.5%.
 
 ## Watch out
 - **The docstring is a prompt.** A vague description gives vague calls.
 - **Keep results small.** Every result is added to the conversation and resent on every turn ([[What is a turn]]).
-- **Limit the calls.** Nothing stops a model that keeps calling tools, unless you add a limit (`ToolCallLimitMiddleware`).
+- **Limit the calls.** Nothing stops a model that keeps calling tools, unless you add a limit (`ToolCallLimitMiddleware`: [[Limits in LangChain]]).
 
 ## Related
-[[LangChain Overview]] · [[The running example]] · [[What is a tool]] · [[Runtime in LangChain]] · [[Agents in LangChain]] · [[The agent loop in LangChain]] · [[Schemas in LangChain]] · [[Middleware in LangChain]]
+[[LangChain Overview]] · [[What is a tool]] · [[Runtime in LangChain]] · [[Agents in LangChain]] · [[The agent loop in LangChain]] · [[Schemas in LangChain]] · [[Middleware in LangChain]]
 
 ## My notes & questions

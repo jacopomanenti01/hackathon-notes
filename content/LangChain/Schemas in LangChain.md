@@ -6,41 +6,52 @@ sources:
   - https://docs.langchain.com/oss/python/langchain/tools
 status: current
 created: 2026-10-30
-updated: 2026-11-02
+updated: 2026-11-03
 ---
 # Schemas in LangChain
 
 > A schema describes the shape of some data: its fields, their types and their rules. The model reads it to know what to write, and your code uses it to check what the model wrote.
 
-## Context
+## What it is
 
-In [[The running example]], the strategist must return the portfolio's weights. A model writes text, and text can be anything:
+A model writes free text, and code can't rely on free text. A **schema** fixes the shape of the data instead. It does **two jobs at once**:
+1. **It instructs the model**: its descriptions are sent to the model, as part of the prompt.
+2. **It checks the result**: data of the wrong shape, or that breaks a rule, is rejected, and the error goes back to the model so it can try again.
 
-```text
-"I'd go mostly equity, maybe 60%, and put the rest in bonds."
-```
+## Its components
 
-That's hard for the next step to use: "maybe 60%" isn't a number, the Cash Fund is missing, and the risk check can't read a sentence. It needs something like:
+| Component | What it is |
+|---|---|
+| **fields** | the pieces of data, e.g. a weight per fund and a rationale |
+| **types** | what each field holds: a number, text, a list, a fixed set of values |
+| **descriptions** | text the model reads: the class docstring, and each field's description |
+| **validators** | your own rules, written in Python, e.g. "every fund needs a weight" |
 
-```python
-Allocation(weights={"equity": 0.55, "bond": 0.30, "cash": 0.15},
-           rationale="Equity has the best return for its risk.")
-```
+## How LangChain implements it
 
-A **schema** is how you get that.
+A schema is usually a Pydantic `BaseModel`: fields with type hints, `Field(description=..., ge=..., le=...)` for descriptions and limits, and `@field_validator` for your own rules. It's used in three places:
 
-## What a schema does
+| Passed to | Describes | Filled in by | Seen by the model? |
+|---|---|---|---|
+| `@tool(args_schema=...)` | a tool's arguments ([[Tools in LangChain]]) | the model, when calling the tool | yes |
+| `create_agent(response_format=...)` | the agent's final answer | the model, as its answer | yes |
+| `create_agent(context_schema=...)` | the fixed context ([[Runtime in LangChain]]) | your code | no |
 
-A schema is a Python class, usually a Pydantic `BaseModel`, that declares the fields, their types and their allowed values. It does **two jobs at once**:
+For the final answer, `response_format` takes:
+- `ToolStrategy(Schema)`: the schema is given to the model **as a tool to call** for its answer. Nothing runs afterwards: the arguments *are* the answer. A failed check goes back to the model (`handle_errors=True`, the default);
+- `ProviderStrategy(Schema)`: the model provider's own structured output;
+- the schema itself: LangChain picks one of the two.
 
-1. **It instructs the model.** The class docstring and each field's `description` are sent to the model: they're part of the prompt.
-2. **It checks the answer.** Pydantic rejects data of the wrong shape, and a **validator** (`@field_validator`) enforces any rule you write in Python. When a check fails, the error goes back to the model, which answers again.
+The checked answer is in the result under `structured_response`.
 
 ## Example
+
+Take a strategist agent that must return a portfolio's **weights**, the share of the money in each of three funds (equity, bond and cash). Left to itself, a model might write *"mostly equity, maybe 60%, the rest in bonds"*: no number for cash, and nothing code can check. With a schema:
 
 ```python
 from typing import Literal
 from pydantic import BaseModel, Field, field_validator
+from langchain.agents.structured_output import ToolStrategy
 
 class Allocation(BaseModel):
     """How much of the portfolio goes into each fund, and why."""        # the model reads this
@@ -57,34 +68,19 @@ class Allocation(BaseModel):
         if any(w < 0 for w in weights.values()):
             raise ValueError("Weights can't be negative")
         return weights
-```
-
-```python
-from langchain.agents.structured_output import ToolStrategy
 
 strategist = create_agent(model, response_format=ToolStrategy(Allocation), ...)
-result = strategist.invoke(...)
-allocation = result["structured_response"]       # an Allocation, already checked
+allocation = strategist.invoke(...)["structured_response"]   # an Allocation, already checked
 ```
 
-In the example, the strategist's first answer gives equity and bond only. The validator raises *"Every fund needs a weight; missing: ['cash']"*, LangChain sends that message back, and the second answer (55/30/15) passes.
-
-## Where schemas are used
-
-| Schema | Passed to | Who fills it in | Seen by the model? |
-|---|---|---|---|
-| `ReturnsInput` | `@tool(args_schema=...)` | the model, when calling a tool | yes |
-| `Allocation` | `response_format=ToolStrategy(...)` | the model, as its final answer | yes |
-| `Mandate` | `context_schema=` | your code ([[Runtime in LangChain]]) | **no** |
-
-`ToolStrategy` gives the model the schema **as a tool to call** for its final answer: a tool's arguments are already structured data. Unlike a real tool, nothing runs afterwards: the arguments *are* the answer. Retrying on a failed check is on by default (`handle_errors=True`). Passing the schema directly, `response_format=Allocation`, lets LangChain choose between this and the model provider's own structured output.
+The strategist's first answer gives weights for equity and bond only. The validator raises *"Every fund needs a weight; missing: ['cash']"*, LangChain sends it back, and on its second [[What is a turn|turn]] the strategist answers equity 55%, bond 30%, cash 15%, which passes.
 
 ## Watch out
 - **Error messages are prompts.** Write them as instructions the model can act on ("missing: ['cash']"), not just "invalid".
-- **Valid isn't good.** A schema checks shape and hard rules. It can't tell whether the weights are a sensible portfolio.
+- **Valid isn't good.** A schema checks shape and hard rules. It can't tell whether the weights are a sensible portfolio, and 55% in equity passes even if the mandate allows 40% ([[Middleware in LangChain]]).
 - **Keep schemas simple**: flat fields, dicts, fixed values (`Literal`). Deeply nested schemas are harder for models to fill in.
 
 ## Related
-[[LangChain Overview]] · [[The running example]] · [[Agents in LangChain]] · [[Tools in LangChain]] · [[What is a tool]] · [[State in LangChain]]
+[[LangChain Overview]] · [[Agents in LangChain]] · [[Tools in LangChain]] · [[What is a tool]] · [[State in LangChain]]
 
 ## My notes & questions

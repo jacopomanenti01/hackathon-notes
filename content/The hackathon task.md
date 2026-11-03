@@ -53,7 +53,7 @@ The template works end to end, but each part is a starting point for teams to im
 
 ## Where each idea is explained
 
-The framework notes explain each idea on a small made-up example, [[The running example]] (three funds, no real data), not on this task. To choose a library, see [[LangChain or LangGraph]].
+The framework notes explain each idea on a small made-up example (three funds, no real data), not on this task. To choose a library, see [[LangChain or LangGraph]].
 
 | Part of the task | LangChain notes | LangGraph notes |
 |---|---|---|

@@ -14,7 +14,7 @@ updated: 2026-11-02
 
 ## Context
 
-In [[The running example]], the researcher calls tools for 4 turns, the strategist is corrected once, and a risk check fixes the weights. Both libraries can build this. The question is who writes the loop *"call the model → run the tools → call the model again"*: the library, or you.
+Take an agentic system that builds a portfolio from three funds: a researcher calls tools for 4 turns, a strategist is corrected once, and a risk check fixes the weights. Both libraries can build this. The question is who writes the loop *"call the model → run the tools → call the model again"*: the library, or you.
 
 ## The two in one table
 
@@ -48,12 +48,13 @@ They aren't rivals: `create_agent` **builds a LangGraph graph**, and a common se
 | [[Skills in LangChain]] | [[Branches in LangGraph]] |
 | [[Hooks in LangChain]] | [[Errors and retries in LangGraph]] |
 | [[Middleware in LangChain]] | |
+| [[Limits in LangChain]] | |
 | [[State in LangChain]] | |
 | [[Workflow in LangChain]] | |
 
-Both: [[The running example]], [[What is a loop]], [[What is a tool]], [[What is a turn]].
+Both: [[What is a loop]], [[What is a tool]], [[What is a turn]].
 
 ## Related
-[[The running example]] · [[Agents in LangChain]] · [[Workflow in LangChain]] · [[Workflow in LangGraph]]
+[[Agents in LangChain]] · [[Workflow in LangChain]] · [[Workflow in LangGraph]]
 
 ## My notes & questions

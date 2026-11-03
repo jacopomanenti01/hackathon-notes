@@ -20,7 +20,7 @@ Suppose you want an agentic workflow to build a portfolio from three funds, an E
 - a researcher, who measures how each fund has performed and how risky it is;
 - a strategist, who turns the researcher's analysis into weights;
 - a risk check, a layer of plain code that applies the limits in the mandate;
-- a writer, who explains the result in a short market note ([[The running example]]).
+- a writer, who explains the result in a short market note.
 
 This system could look like this:
 
@@ -182,7 +182,7 @@ However, every extra turn resends the whole conversation, so a loop like this ge
 So, in the scenario above:
 - the researcher asking for more and more returns hits the **tool call limit** after 6 calls: its next requests are refused, and it writes its notes with the data it already has;
 - the strategist that keeps failing the schema hits the **model call limit** after 8 turns: it stops with no weights at all, so the next step must handle a missing answer (each rejected answer costs a turn);
-- the **recursion limit** never fires here: it's a safety net, for a loop that nothing else has stopped ([[What is a turn]], [[Middleware in LangChain]]).
+- the **recursion limit** never fires here: it's a safety net, for a loop that nothing else has stopped ([[What is a turn]], [[Limits in LangChain]]).
 
 ## From one agent to a team
 
@@ -229,6 +229,7 @@ The detail notes, in the order this tour introduced them:
 - [[Schemas in LangChain]]
 - [[Hooks in LangChain]]
 - [[Middleware in LangChain]]
+- [[Limits in LangChain]]
 - [[State in LangChain]]
 - [[Workflow in LangChain]]
 
@@ -237,6 +238,6 @@ The three general notes, [[What is a loop]], [[What is a turn]] and [[What is a 
 And if you're still deciding whether to build with LangChain at all, [[LangChain or LangGraph]] compares it with writing every step yourself.
 
 ## Related
-[[The running example]] · [[LangChain or LangGraph]] · [[What is a loop]] · [[What is a tool]] · [[What is a turn]]
+[[LangChain or LangGraph]] · [[What is a loop]] · [[What is a tool]] · [[What is a turn]]
 
 ## My notes & questions

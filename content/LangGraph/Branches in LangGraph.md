@@ -66,7 +66,9 @@ Equity is at 55%, over the limit, so the run goes through `rebalance`, which cap
 - **Return a name the edge knows.** If the router returns a node that isn't among the destinations, the run fails.
 - **Routers shouldn't change the state.** They only read it: put the work in the node before.
 
-## Related
-[[LangGraph Overview]] · [[Workflow in LangGraph]] · [[The agent loop in LangGraph]] · [[State in LangGraph]] · [[Middleware in LangChain]]
+## References
+- [LangGraph docs: Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api)
+- [LangGraph docs: Use the Graph API](https://docs.langchain.com/oss/python/langgraph/use-graph-api)
 
-## My notes & questions
+## Related
+[[A Brief Overview on LangGraph]] · [[Workflow in LangGraph]] · [[The agent loop in LangGraph]] · [[State in LangGraph]] · [[Middleware in LangChain]]

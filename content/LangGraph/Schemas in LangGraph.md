@@ -82,7 +82,9 @@ Its first answer gives weights for equity and bond only. The check fails with *"
 - **Valid isn't good.** A schema checks the form and hard rules, not whether the answer makes sense: 55% in equity passes it, and breaks the mandate ([[Branches in LangGraph]]).
 - **The state's types aren't a schema.** The `TypedDict` is never sent to the model and isn't checked at run time ([[State in LangGraph]]).
 
-## Related
-[[LangGraph Overview]] · [[Agents in LangGraph]] · [[Tools in LangGraph]] · [[Errors and retries in LangGraph]] · [[Schemas in LangChain]]
+## References
+- [LangChain docs: Models](https://docs.langchain.com/oss/python/langchain/models)
+- [LangGraph docs: Workflows and agents](https://docs.langchain.com/oss/python/langgraph/workflows-agents)
 
-## My notes & questions
+## Related
+[[A Brief Overview on LangGraph]] · [[Agents in LangGraph]] · [[Tools in LangGraph]] · [[Errors and retries in LangGraph]] · [[Schemas in LangChain]]

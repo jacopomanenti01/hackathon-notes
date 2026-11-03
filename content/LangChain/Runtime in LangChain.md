@@ -79,7 +79,10 @@ The model asks for `get_returns(days=90)` and gets the returns of all three fund
 - **The context isn't checked by any schema**, and nothing stops your own code from changing it. Use `frozen=True` if it must never change.
 - **Calling a tool by hand** (outside an agent) fails if it needs a runtime: LangChain fills it in only inside the agent ([[The agent loop in LangChain]]).
 
-## Related
-[[LangChain Overview]] · [[Tools in LangChain]] · [[Middleware in LangChain]] · [[Hooks in LangChain]] · [[State in LangChain]] · [[Agents in LangChain]] · [[Runtime in LangGraph]]
+## References
+- [LangChain docs: Runtime](https://docs.langchain.com/oss/python/langchain/runtime)
+- [LangChain docs: Tools](https://docs.langchain.com/oss/python/langchain/tools)
+- [LangChain docs: Context engineering](https://docs.langchain.com/oss/python/langchain/context-engineering)
 
-## My notes & questions
+## Related
+[[A Brief Overview on LangChain]] · [[Tools in LangChain]] · [[Middleware in LangChain]] · [[Hooks in LangChain]] · [[State in LangChain]] · [[Agents in LangChain]] · [[Runtime in LangGraph]]

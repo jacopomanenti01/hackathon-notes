@@ -14,7 +14,7 @@ updated: 2026-11-03
 
 ## What it is
 
-An agent works in [[What is a turn|turns]]: the model is called, the tools it asked for run, and the model is called again with the results, until it answers without asking for anything ([[What is a loop]]). LangChain runs this loop for you inside `create_agent` ([[The agent loop in LangChain]]). In LangGraph you build it yourself, out of nodes and edges, so you see each turn as steps of the graph, and you decide how it stops.
+An agent works in [[Introduction#What is a turn|turns]]: the model is called, the tools it asked for run, and the model is called again with the results, until it answers without asking for anything ([[Introduction#What is a loop|What is a loop]]). LangChain runs this loop for you inside `create_agent` ([[The agent loop in LangChain]]). In LangGraph you build it yourself, out of nodes and edges, so you see each turn as steps of the graph, and you decide how it stops.
 
 ## Its components
 
@@ -74,7 +74,9 @@ model_now = model.bind_tools(tools) if tools else model
 - **Stopping is your job.** Without your own count, a model that keeps calling tools runs until the recursion limit fails the run, and the default limit is 10,007 steps.
 - **The conversation grows.** Every turn resends all of it, so keep tool results small.
 
-## Related
-[[LangGraph Overview]] · [[Tools in LangGraph]] · [[Branches in LangGraph]] · [[State in LangGraph]] · [[What is a turn]] · [[What is a loop]] · [[The agent loop in LangChain]]
+## References
+- [LangGraph docs: Workflows and agents](https://docs.langchain.com/oss/python/langgraph/workflows-agents)
+- [LangGraph docs: Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api)
 
-## My notes & questions
+## Related
+[[A Brief Overview on LangGraph]] · [[Tools in LangGraph]] · [[Branches in LangGraph]] · [[State in LangGraph]] · [[Introduction]] · [[The agent loop in LangChain]]

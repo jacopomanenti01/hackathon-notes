@@ -79,7 +79,10 @@ The model asks for `get_returns(days=90)` and gets the returns of all three fund
 - **Don't put fixed values in the state** just because every node can read it there: any node could overwrite them.
 - **Calling a tool by hand** (outside the graph) fails if it needs a runtime: the `ToolNode` fills it in only inside the graph.
 
-## Related
-[[LangGraph Overview]] · [[Tools in LangGraph]] · [[Agents in LangGraph]] · [[State in LangGraph]] · [[Runtime in LangChain]]
+## References
+- [LangGraph docs: Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api)
+- [LangGraph docs: Use the Graph API](https://docs.langchain.com/oss/python/langgraph/use-graph-api)
+- [LangChain docs: Tools](https://docs.langchain.com/oss/python/langchain/tools)
 
-## My notes & questions
+## Related
+[[A Brief Overview on LangGraph]] · [[Tools in LangGraph]] · [[Agents in LangGraph]] · [[State in LangGraph]] · [[Runtime in LangChain]]

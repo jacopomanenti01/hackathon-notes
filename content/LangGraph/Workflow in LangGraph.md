@@ -75,7 +75,7 @@ flowchart LR
 ```
 
 The run goes like this:
-1. the `researcher` and `tools` nodes take turns until the researcher writes its notes, in four [[What is a turn|turns]] ([[The agent loop in LangGraph]]);
+1. the `researcher` and `tools` nodes take turns until the researcher writes its notes, in four [[Introduction#What is a turn|turns]] ([[The agent loop in LangGraph]]);
 2. the `strategist` proposes equity 55%, bond 30%, cash 15%;
 3. the `risk_check` finds equity over the limit, so the graph goes to `rebalance`, which approves equity 40%, bond 40%, cash 20%;
 4. the `writer` explains it.
@@ -86,7 +86,10 @@ That's 11 graph steps. With weights that pass the check, `rebalance` would be sk
 - **Every loop needs an exit.** The recursion limit stops a runaway graph only with an error, and its default is very high (10,007): set your own, e.g. `config={"recursion_limit": 30}`.
 - **The drawing is the program.** A node with no edge into it never runs, and a node with no edge out ends the run there, without any error.
 
-## Related
-[[LangGraph Overview]] · [[State in LangGraph]] · [[Branches in LangGraph]] · [[Agents in LangGraph]] · [[The agent loop in LangGraph]] · [[Workflow in LangChain]]
+## References
+- [LangGraph docs: Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api)
+- [LangGraph docs: Use the Graph API](https://docs.langchain.com/oss/python/langgraph/use-graph-api)
+- [LangGraph docs: Thinking in LangGraph](https://docs.langchain.com/oss/python/langgraph/thinking-in-langgraph)
 
-## My notes & questions
+## Related
+[[A Brief Overview on LangGraph]] · [[State in LangGraph]] · [[Branches in LangGraph]] · [[Agents in LangGraph]] · [[The agent loop in LangGraph]] · [[Workflow in LangChain]]

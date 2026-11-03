@@ -36,7 +36,7 @@ flowchart LR
     AM -->|answer| AA["after_agent"]
 ```
 
-The middle hooks repeat on every [[What is a turn|turn]].
+The middle hooks repeat on every [[Introduction#What is a turn|turn]].
 
 ## How LangChain implements it
 
@@ -71,7 +71,7 @@ def timed(request, handler):
 
 ## Example
 
-Take a strategist agent that proposes a portfolio's weights across three funds, under a limit of at most 40% in equity. Its run takes two [[What is a turn|turns]]: its first answer is rejected, its second passes. Here are the hooks it passes through:
+Take a strategist agent that proposes a portfolio's weights across three funds, under a limit of at most 40% in equity. Its run takes two [[Introduction#What is a turn|turns]]: its first answer is rejected, its second passes. Here are the hooks it passes through:
 
 | Moment in the run | Hook | What could run there |
 |---|---|---|
@@ -86,7 +86,9 @@ Take a strategist agent that proposes a portfolio's weights across three funds, 
 - **Every-turn hooks run a lot.** Keep `before_model` and `wrap_model_call` fast.
 - **Pick the right kind.** If you need the call itself (retry it, change it), use a wrap-style hook; a node-style hook can't touch the call.
 
-## Related
-[[LangChain Overview]] · [[Middleware in LangChain]] · [[The agent loop in LangChain]] · [[State in LangChain]] · [[What is a turn]]
+## References
+- [LangChain docs: Middleware overview](https://docs.langchain.com/oss/python/langchain/middleware/overview)
+- [LangChain docs: Custom middleware](https://docs.langchain.com/oss/python/langchain/middleware/custom)
 
-## My notes & questions
+## Related
+[[A Brief Overview on LangChain]] · [[Middleware in LangChain]] · [[The agent loop in LangChain]] · [[State in LangChain]] · [[Introduction]]

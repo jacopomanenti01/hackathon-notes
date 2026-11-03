@@ -76,7 +76,7 @@ flowchart LR
 
 This section explains how a large language model (LLM), like the one behind ChatGPT or Claude, differs from an agent, and how you build one in LangGraph.
 
-On its own, a model only answers once, from what it happens to remember: it has no access to the funds' prices. The researcher needs to *find things out*: ask for the returns, read them, and decide what to look at next. So the model is given **tools**, functions it can ask your program to run, and it works in a **loop**: it asks, reads the result, and decides again, until it answers without asking for anything ([[What is a loop]]). A model used this way is an **agent**.
+On its own, a model only answers once, from what it happens to remember: it has no access to the funds' prices. The researcher needs to *find things out*: ask for the returns, read them, and decide what to look at next. So the model is given **tools**, functions it can ask your program to run, and it works in a **loop**: it asks, reads the result, and decides again, until it answers without asking for anything ([[Introduction#What is a loop|What is a loop]]). A model used this way is an **agent**.
 
 In LangGraph, an agent is a node you write yourself. The node reads what it needs from the state, builds the messages for the model, calls it, and returns the reply as state keys ([[Agents in LangGraph]]).
 
@@ -88,7 +88,7 @@ Take the researcher. It's asked to *"Research the funds"*, and it has two tools:
 - one that gives the funds' returns over a number of past days (up to 365);
 - one that gives the volatility of a fund.
 
-It can't do everything in one go. It must first know the returns before deciding which funds' risk is worth checking. And let's imagine that its very first request turns out to be wrong, so it needs one more round to fix it. That makes **four turns** ([[What is a turn]]):
+It can't do everything in one go. It must first know the returns before deciding which funds' risk is worth checking. And let's imagine that its very first request turns out to be wrong, so it needs one more round to fix it. That makes **four turns** ([[Introduction#What is a turn|What is a turn]]):
 
 | Turn | The model asks for… | …your program runs it, and the model reads |
 |---|---|---|
@@ -161,7 +161,7 @@ By reading the request and the tools' descriptions, the model may decide that it
 call get_returns with {"days": 90}
 ```
 
-Then something must run the requested function with the arguments the model chose, and hand the result back ([[What is a tool]]). In LangGraph, that's the `tools` node of the loop above: a ready-made **`ToolNode`**, given the same tools, which runs every call in the model's last reply and adds each result to the conversation. So each tool is listed twice, once where the model is called and once in the graph:
+Then something must run the requested function with the arguments the model chose, and hand the result back ([[Introduction#What is a tool|What is a tool]]). In LangGraph, that's the `tools` node of the loop above: a ready-made **`ToolNode`**, given the same tools, which runs every call in the model's last reply and adds each result to the conversation. So each tool is listed twice, once where the model is called and once in the graph:
 
 ```python
 reply = model.bind_tools([get_returns, get_volatility]).invoke(messages)   # in the researcher node: the model may ask
@@ -301,7 +301,7 @@ So if the server times out during the strategist's call, the node runs again, an
 
 ## Where to go from here
 
-> [!tip] Next read: [[LangChain or LangGraph]]
+> [!tip] Next read: [[Introduction#LangGraph vs LangChain|LangGraph vs LangChain]]
 > Now that you've seen how LangGraph builds the system step by step, see when writing every step yourself is worth it, and when a ready-made agent is the better choice.
 
 Then go deeper into each part, with the detail notes in the order this tour introduced them:
@@ -315,9 +315,7 @@ Then go deeper into each part, with the detail notes in the order this tour intr
 - [[Branches in LangGraph]]
 - [[Errors and retries in LangGraph]]
 
-The three general notes, [[What is a loop]], [[What is a turn]] and [[What is a tool]], explain the ideas behind them without any library.
+The [[Introduction]] explains the ideas behind them without any library: tools, the loop, turns, and how LangChain and LangGraph differ.
 
 ## Related
-[[LangChain or LangGraph]] · [[What is a loop]] · [[What is a tool]] · [[What is a turn]]
-
-## My notes & questions
+[[Introduction]]

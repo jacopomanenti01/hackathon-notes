@@ -106,7 +106,7 @@ def research_step(state: PortfolioState) -> dict:
 ```
 
 The shared state fills up step by step:
-1. the researcher's own state holds its four [[What is a turn|turns]], with every return and volatility it asked for; only its notes go into the shared state, under `notes`;
+1. the researcher's own state holds its four [[Introduction#What is a turn|turns]], with every return and volatility it asked for; only its notes go into the shared state, under `notes`;
 2. the strategist reads `notes`; its risk check writes `approved_weights` (equity 40%, bond 40%, cash 20%) and `risk_review` (equity was cut from 55%) into its own state, and its step copies both into the shared state;
 3. the writer reads both and writes `market_note`, which can explain why equity is at the limit.
 
@@ -114,7 +114,10 @@ The shared state fills up step by step:
 - **Declare a key before you write it.** An undeclared key is dropped without any error.
 - **Copy out only what the next step needs.** Passing a whole conversation along makes every later prompt longer and slower.
 
-## Related
-[[LangChain Overview]] · [[Workflow in LangChain]] · [[Agents in LangChain]] · [[Middleware in LangChain]] · [[Hooks in LangChain]] · [[The agent loop in LangChain]]
+## References
+- [LangChain docs: Short-term memory](https://docs.langchain.com/oss/python/langchain/short-term-memory)
+- [LangChain docs: Agents](https://docs.langchain.com/oss/python/langchain/agents)
+- [LangChain docs: Multi-agent, custom workflow](https://docs.langchain.com/oss/python/langchain/multi-agent/custom-workflow)
 
-## My notes & questions
+## Related
+[[A Brief Overview on LangChain]] · [[Workflow in LangChain]] · [[Agents in LangChain]] · [[Middleware in LangChain]] · [[Hooks in LangChain]] · [[The agent loop in LangChain]]

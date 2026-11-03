@@ -15,7 +15,7 @@ updated: 2026-11-03
 
 ## What it is
 
-A plain model call sends a request to a large language model (LLM) and gets one reply back, written from what the model already knows. An **agent** can do more: when it needs information it doesn't have, it asks your program to run a function ([[What is a tool]]), reads the result, and decides what to do next. It repeats this ask-read-decide cycle, the **loop** ([[What is a loop]]), until it can answer.
+A plain model call sends a request to a large language model (LLM) and gets one reply back, written from what the model already knows. An **agent** can do more: when it needs information it doesn't have, it asks your program to run a function ([[Introduction#What is a tool|What is a tool]]), reads the result, and decides what to do next. It repeats this ask-read-decide cycle, the **loop** ([[Introduction#What is a loop|What is a loop]]), until it can answer.
 
 So an agent is a model, plus tools, plus that loop.
 
@@ -99,7 +99,7 @@ result = researcher.invoke(
 notes = result["messages"][-1].content    # "Equity: +4% over 90 days, volatility 15%. ..."
 ```
 
-The run takes four [[What is a turn|turns]]: the model asks for the returns over 500 days and is told the limit is 365, asks again for 90 days, asks for the volatility of equity and bond, and finally writes its notes. Each step of that cycle is explained in [[The agent loop in LangChain]].
+The run takes four [[Introduction#What is a turn|turns]]: the model asks for the returns over 500 days and is told the limit is 365, asks again for 90 days, asks for the volatility of equity and bond, and finally writes its notes. Each step of that cycle is explained in [[The agent loop in LangChain]].
 
 An agent doesn't need tools. A **writer** that only turns approved weights into a short market note has no tools and no answer form: it answers once, in text. That's still an agent, whose loop lasts one turn.
 
@@ -107,7 +107,10 @@ An agent doesn't need tools. A **writer** that only turns approved weights into 
 - **Prompt or context?** What the model must *read* goes in the prompt or the messages. What it must *not change* (the funds, the limit) goes in the context; middleware can still show it to the model ([[Runtime in LangChain]]).
 - **No answer is possible.** If a limit stops the agent, `structured_response` is `None`. Check it before using it.
 
-## Related
-[[LangChain Overview]] · [[What is a tool]] · [[What is a loop]] · [[The agent loop in LangChain]] · [[Runtime in LangChain]] · [[Tools in LangChain]] · [[Schemas in LangChain]] · [[Middleware in LangChain]] · [[State in LangChain]] · [[Workflow in LangChain]] · [[LangChain or LangGraph]]
+## References
+- [LangChain docs: Quickstart](https://docs.langchain.com/oss/python/langchain/quickstart)
+- [LangChain docs: Agents](https://docs.langchain.com/oss/python/langchain/agents)
+- [LangChain docs: Runtime](https://docs.langchain.com/oss/python/langchain/runtime)
 
-## My notes & questions
+## Related
+[[A Brief Overview on LangChain]] · [[Introduction]] · [[The agent loop in LangChain]] · [[Runtime in LangChain]] · [[Tools in LangChain]] · [[Schemas in LangChain]] · [[Middleware in LangChain]] · [[State in LangChain]] · [[Workflow in LangChain]]

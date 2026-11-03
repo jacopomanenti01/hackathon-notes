@@ -74,7 +74,7 @@ A subclass of `AgentMiddleware`, with one method per hook it uses, e.g. `before_
 - **several hooks** that work together, sharing the same settings and data;
 - **new keys in the state** used by those hooks: the class declares them once, with `state_schema`, or they're silently dropped ([[State in LangChain]]).
 
-Say you want to count an agent's [[What is a turn|turns]]: warn when a run takes too many, and keep the count in the result so your code can check it. That needs all three:
+Say you want to count an agent's [[Introduction#What is a turn|turns]]: warn when a run takes too many, and keep the count in the result so your code can check it. That needs all three:
 
 ```python
 from typing import NotRequired
@@ -158,7 +158,12 @@ The strategist answers equity 55%, bond 30%, cash 15%. The answer has the right 
 - **New keys need `state_schema`.** A key a middleware returns but never declared is silently dropped ([[State in LangChain]]).
 - **Order matters.** The first middleware in the list wraps the others ([[Hooks in LangChain]]).
 
-## Related
-[[LangChain Overview]] · [[Hooks in LangChain]] · [[Runtime in LangChain]] · [[Agents in LangChain]] · [[State in LangChain]] · [[The agent loop in LangChain]] · [[Limits in LangChain]]
+## References
+- [LangChain docs: Middleware overview](https://docs.langchain.com/oss/python/langchain/middleware/overview)
+- [LangChain docs: Built-in middleware](https://docs.langchain.com/oss/python/langchain/middleware/built-in)
+- [LangChain docs: Custom middleware](https://docs.langchain.com/oss/python/langchain/middleware/custom)
+- [LangChain docs: Guardrails](https://docs.langchain.com/oss/python/langchain/guardrails)
+- [A. Garavaglia, LangChain middlewares: lightweight hooks for more structured agents (Medium)](https://medium.com/@ale.garavaglia/langchain-middlewares-lightweight-hooks-for-more-structured-agents-f0abba828934)
 
-## My notes & questions
+## Related
+[[A Brief Overview on LangChain]] · [[Hooks in LangChain]] · [[Runtime in LangChain]] · [[Agents in LangChain]] · [[State in LangChain]] · [[The agent loop in LangChain]] · [[Limits in LangChain]]

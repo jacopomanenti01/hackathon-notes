@@ -151,5 +151,5 @@ Type these in the Hermes prompt.
 
 
 ## Related
-[[The hackathon task]] · [[Tracing and Langfuse]] · [[What is a tool]]
+[[Tracing and Langfuse]] · [[Introduction]]
 

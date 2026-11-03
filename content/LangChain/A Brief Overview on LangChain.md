@@ -47,7 +47,7 @@ Inside each agent there is a repeating process called the **loop**. In the examp
 - the model decides what it needs to do its task (your request), and asks for it (in the example above, it asks for the tool that fetches the funds' returns);
 - your program carries out what it asked for;
 - the model reads the result;
-- this repeats until the model answers without asking for anything ([[What is a loop]]).
+- this repeats until the model answers without asking for anything ([[Introduction#What is a loop|What is a loop]]).
 
 Each round of this loop is a **turn**. Two things happen in a round: your program **calls the model**, and then **runs the tools** the model asked for (if any). So a turn is one model call, plus the tools it requested.
 
@@ -55,7 +55,7 @@ Take the researcher. It's asked to *"Research the funds"*, and it has two tools:
 - one that gives the funds' returns over a number of past days (up to 365);
 - one that gives the volatility of a fund.
 
-It can't do everything in one go. It must first know the returns before deciding which funds' risk is worth checking. And let's imagine that its very first request turns out to be wrong, so it needs one more round to fix it. That makes **four turns** ([[What is a turn]]):
+It can't do everything in one go. It must first know the returns before deciding which funds' risk is worth checking. And let's imagine that its very first request turns out to be wrong, so it needs one more round to fix it. That makes **four turns** ([[Introduction#What is a turn|What is a turn]]):
 
 | Turn | The model asks for… | …your program runs it, and the model reads |
 |---|---|---|
@@ -80,7 +80,7 @@ Earlier we said that the model *asks for* tools. This means that, by reading the
 call get_returns with {"days": 90}
 ```
 
-Then your program runs the requested function with the arguments the model chose, and hands the result back ([[What is a tool]]). In LangChain, a tool is an ordinary Python function marked with `@tool`; its name, its docstring and the types of its arguments become the description the model reads.
+Then your program runs the requested function with the arguments the model chose, and hands the result back ([[Introduction#What is a tool|What is a tool]]). In LangChain, a tool is an ordinary Python function marked with `@tool`; its name, its docstring and the types of its arguments become the description the model reads.
 
 What happens if the model asks for something impossible? In turn 1 of the example, the researcher asks for the returns over the last 500 days, but the tool only accepts 5 to 365 (a limit we chose for the example). The function doesn't run. Instead, the error goes back to the model as the tool's result:
 
@@ -182,7 +182,7 @@ However, every extra turn resends the whole conversation, so a loop like this ge
 So, in the scenario above:
 - the researcher asking for more and more returns hits the **tool call limit** after 6 calls: its next requests are refused, and it writes its notes with the data it already has;
 - the strategist that keeps failing the schema hits the **model call limit** after 8 turns: it stops with no weights at all, so the next step must handle a missing answer (each rejected answer costs a turn);
-- the **recursion limit** never fires here: it's a safety net, for a loop that nothing else has stopped ([[What is a turn]], [[Limits in LangChain]]).
+- the **recursion limit** never fires here: it's a safety net, for a loop that nothing else has stopped ([[Introduction#What is a turn|What is a turn]], [[Limits in LangChain]]).
 
 ## From one agent to a team
 
@@ -220,7 +220,7 @@ A graph isn't the only way to combine agents. You could also let a main agent ca
 
 ## Where to go from here
 
-> [!tip] Next read: [[LangChain or LangGraph]]
+> [!tip] Next read: [[Introduction#LangGraph vs LangChain|LangGraph vs LangChain]]
 > Now that you've seen how LangChain builds an agent, compare it with LangGraph, where you write every step of the loop yourself. It helps you choose which library to build with.
 
 Then go deeper into each part, with the detail notes in the order this tour introduced them:
@@ -236,9 +236,7 @@ Then go deeper into each part, with the detail notes in the order this tour intr
 - [[State in LangChain]]
 - [[Workflow in LangChain]]
 
-The three general notes, [[What is a loop]], [[What is a turn]] and [[What is a tool]], explain the ideas behind them without any library.
+The [[Introduction]] explains the ideas behind them without any library: tools, the loop, turns, and how LangChain and LangGraph differ.
 
 ## Related
-[[LangChain or LangGraph]] · [[What is a loop]] · [[What is a tool]] · [[What is a turn]]
-
-## My notes & questions
+[[Introduction]]

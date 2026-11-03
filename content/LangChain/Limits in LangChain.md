@@ -14,11 +14,11 @@ updated: 2026-11-03
 
 ## What it is
 
-The agent loop ends only when the model answers without asking for a tool ([[What is a loop]]). Nothing guarantees it will: a model can keep asking for "one more" result, or keep failing to give a valid answer. Every extra turn resends the whole conversation, so a runaway loop gets slower and more expensive, and may never finish. A **limit** puts a ceiling on it.
+The agent loop ends only when the model answers without asking for a tool ([[Introduction#What is a loop|What is a loop]]). Nothing guarantees it will: a model can keep asking for "one more" result, or keep failing to give a valid answer. Every extra turn resends the whole conversation, so a runaway loop gets slower and more expensive, and may never finish. A **limit** puts a ceiling on it.
 
 ## Its components
 
-There are three limits, each counting a different unit ([[What is a turn]]):
+There are three limits, each counting a different unit ([[Introduction#What is a turn|What is a turn]]):
 
 | Limit | Counts | When it's reached |
 |---|---|---|
@@ -69,7 +69,9 @@ And the recursion limit? The researcher's normal run takes 4 turns, but 20 graph
 - **A limit can mean no answer.** After the model call limit, check `structured_response` before using it.
 - **Don't count on the recursion limit.** With `create_agent`'s default of 9,999 it won't save you from a runaway loop; the model call limit will.
 
-## Related
-[[LangChain Overview]] · [[What is a turn]] · [[What is a loop]] · [[Middleware in LangChain]] · [[Hooks in LangChain]] · [[The agent loop in LangChain]]
+## References
+- [LangChain docs: Built-in middleware](https://docs.langchain.com/oss/python/langchain/middleware/built-in)
+- [LangChain docs: Agents](https://docs.langchain.com/oss/python/langchain/agents)
 
-## My notes & questions
+## Related
+[[A Brief Overview on LangChain]] · [[Introduction]] · [[Middleware in LangChain]] · [[Hooks in LangChain]] · [[The agent loop in LangChain]]

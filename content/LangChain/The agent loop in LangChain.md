@@ -14,7 +14,7 @@ updated: 2026-11-03
 
 ## What it is
 
-The **agent loop** is the cycle that makes an agent work: the model decides, your program runs the tools it asked for, the model reads the results, and so on until it answers ([[What is a loop]]). Each round is a **turn**: one model call plus the tools it requested ([[What is a turn]]). This note is about how that loop looks *inside* LangChain's `create_agent`.
+The **agent loop** is the cycle that makes an agent work: the model decides, your program runs the tools it asked for, the model reads the results, and so on until it answers ([[Introduction#What is a loop|What is a loop]]). Each round is a **turn**: one model call plus the tools it requested ([[Introduction#What is a turn|What is a turn]]). This note is about how that loop looks *inside* LangChain's `create_agent`.
 
 ## Its components
 
@@ -80,7 +80,7 @@ An invalid answer does **not** end the loop: the error goes back as a message an
 
 ## Example
 
-Take a researcher agent asked to *"Research the funds"* (equity, bond and cash), with two tools: `get_returns(days)`, for at most 365 days, and `get_volatility(fund)`. Its run takes four [[What is a turn|turns]], and the `messages` list grows every time:
+Take a researcher agent asked to *"Research the funds"* (equity, bond and cash), with two tools: `get_returns(days)`, for at most 365 days, and `get_volatility(fund)`. Its run takes four [[Introduction#What is a turn|turns]], and the `messages` list grows every time:
 
 | Turn | model step: the model reads all `messages` and replies | tools step: run the calls, add the results |
 |---|---|---|
@@ -95,7 +95,9 @@ At turn 4 the model can compare the returns from turn 2 with the volatility from
 - **The list grows every turn**, and every model call resends all of it. Many turns with big tool results get slow and costly.
 - **From outside, you only see the final state.** To see each turn, look at the full `messages`, or a trace of the run.
 
-## Related
-[[LangChain Overview]] · [[What is a loop]] · [[What is a turn]] · [[What is a tool]] · [[Agents in LangChain]] · [[Tools in LangChain]] · [[Hooks in LangChain]] · [[Middleware in LangChain]]
+## References
+- [LangChain docs: Agents](https://docs.langchain.com/oss/python/langchain/agents)
+- [LangChain docs: Messages](https://docs.langchain.com/oss/python/langchain/messages)
 
-## My notes & questions
+## Related
+[[A Brief Overview on LangChain]] · [[Introduction]] · [[Agents in LangChain]] · [[Tools in LangChain]] · [[Hooks in LangChain]] · [[Middleware in LangChain]]

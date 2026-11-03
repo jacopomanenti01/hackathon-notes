@@ -15,7 +15,7 @@ updated: 2026-11-03
 
 ## What it is
 
-A **tool** is a function the model can't run but can *ask* you to run: the model writes a request (this tool, with these arguments), your program runs it, and the result goes back to the model ([[What is a tool]]). This note is about how you write tools in LangChain, and what happens when a call goes wrong.
+A **tool** is a function the model can't run but can *ask* you to run: the model writes a request (this tool, with these arguments), your program runs it, and the result goes back to the model ([[Introduction#What is a tool|What is a tool]]). This note is about how you write tools in LangChain, and what happens when a call goes wrong.
 
 ## Its components
 
@@ -66,7 +66,7 @@ researcher = create_agent(model, tools=[get_returns, get_volatility], context_sc
 
 The model reads the name `get_returns`, the docstring, and `days` (an integer from 5 to 365). It never sees `runtime`, so it chooses *how many days*, never *which funds*.
 
-On its first [[What is a turn|turn]], the model asks for `days=500`. The arguments don't match the schema, so the tool doesn't run, and LangChain sends back:
+On its first [[Introduction#What is a turn|turn]], the model asks for `days=500`. The arguments don't match the schema, so the tool doesn't run, and LangChain sends back:
 
 ```text
 Error invoking tool 'get_returns' with kwargs {'days': 500} with error:
@@ -78,10 +78,13 @@ On the next turn, the model asks for `days=90` and gets equity +4%, bond +1%, ca
 
 ## Watch out
 - **The docstring is a prompt.** A vague description gives vague calls.
-- **Keep results small.** Every result is added to the conversation and resent on every turn ([[What is a turn]]).
+- **Keep results small.** Every result is added to the conversation and resent on every turn ([[Introduction#What is a turn|What is a turn]]).
 - **Limit the calls.** Nothing stops a model that keeps calling tools, unless you add a limit (`ToolCallLimitMiddleware`: [[Limits in LangChain]]).
 
-## Related
-[[LangChain Overview]] · [[What is a tool]] · [[Runtime in LangChain]] · [[Agents in LangChain]] · [[The agent loop in LangChain]] · [[Schemas in LangChain]] · [[Middleware in LangChain]]
+## References
+- [LangChain docs: Tools](https://docs.langchain.com/oss/python/langchain/tools)
+- [LangChain docs: Runtime](https://docs.langchain.com/oss/python/langchain/runtime)
+- [Hugging Face Agents Course: What are tools?](https://huggingface.co/learn/agents-course/unit1/tools)
 
-## My notes & questions
+## Related
+[[A Brief Overview on LangChain]] · [[Introduction]] · [[Runtime in LangChain]] · [[Agents in LangChain]] · [[The agent loop in LangChain]] · [[Schemas in LangChain]] · [[Middleware in LangChain]]

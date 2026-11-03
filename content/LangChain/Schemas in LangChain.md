@@ -73,14 +73,16 @@ strategist = create_agent(model, response_format=ToolStrategy(Allocation), ...)
 allocation = strategist.invoke(...)["structured_response"]   # an Allocation, already checked
 ```
 
-The strategist's first answer gives weights for equity and bond only. The validator raises *"Every fund needs a weight; missing: ['cash']"*, LangChain sends it back, and on its second [[What is a turn|turn]] the strategist answers equity 55%, bond 30%, cash 15%, which passes.
+The strategist's first answer gives weights for equity and bond only. The validator raises *"Every fund needs a weight; missing: ['cash']"*, LangChain sends it back, and on its second [[Introduction#What is a turn|turn]] the strategist answers equity 55%, bond 30%, cash 15%, which passes.
 
 ## Watch out
 - **Error messages are prompts.** Write them as instructions the model can act on ("missing: ['cash']"), not just "invalid".
 - **Valid isn't good.** A schema checks shape and hard rules. It can't tell whether the weights are a sensible portfolio, and 55% in equity passes even if the mandate allows 40% ([[Middleware in LangChain]]).
 - **Keep schemas simple**: flat fields, dicts, fixed values (`Literal`). Deeply nested schemas are harder for models to fill in.
 
-## Related
-[[LangChain Overview]] · [[Agents in LangChain]] · [[Tools in LangChain]] · [[What is a tool]] · [[State in LangChain]]
+## References
+- [LangChain docs: Structured output](https://docs.langchain.com/oss/python/langchain/structured-output)
+- [LangChain docs: Tools](https://docs.langchain.com/oss/python/langchain/tools)
 
-## My notes & questions
+## Related
+[[A Brief Overview on LangChain]] · [[Agents in LangChain]] · [[Tools in LangChain]] · [[Introduction]] · [[State in LangChain]]

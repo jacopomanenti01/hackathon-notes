@@ -16,7 +16,7 @@ updated: 2026-11-03
 
 ## What it is
 
-A model on its own answers once, from what it already knows. An **agent** is a model that can use tools in a loop: ask for something, read the result, decide again, until it answers ([[What is a loop]]). LangGraph has no agent class to configure. You write the agent as a node, and if it uses tools, you draw its loop in the graph ([[The agent loop in LangGraph]]). Nothing is hidden: every message the model receives is built in front of you.
+A model on its own answers once, from what it already knows. An **agent** is a model that can use tools in a loop: ask for something, read the result, decide again, until it answers ([[Introduction#What is a loop|What is a loop]]). LangGraph has no agent class to configure. You write the agent as a node, and if it uses tools, you draw its loop in the graph ([[The agent loop in LangGraph]]). Nothing is hidden: every message the model receives is built in front of you.
 
 ## Its components
 
@@ -73,7 +73,11 @@ The writer never sees the researcher's conversation: its prompt holds only the t
 - **Give the model what it needs, in a message.** If an agent needs a new piece of information, put it in the messages its node builds: the model knows nothing else.
 - **Server errors stop the node.** Add a `retry_policy` to each node that calls a model.
 
-## Related
-[[LangGraph Overview]] · [[The agent loop in LangGraph]] · [[Tools in LangGraph]] · [[Runtime in LangGraph]] · [[Schemas in LangGraph]] · [[State in LangGraph]] · [[Agents in LangChain]]
+## References
+- [LangGraph docs: Workflows and agents](https://docs.langchain.com/oss/python/langgraph/workflows-agents)
+- [LangGraph docs: Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api)
+- [LangChain docs: Models](https://docs.langchain.com/oss/python/langchain/models)
+- [LangChain docs: Messages](https://docs.langchain.com/oss/python/langchain/messages)
 
-## My notes & questions
+## Related
+[[A Brief Overview on LangGraph]] · [[The agent loop in LangGraph]] · [[Tools in LangGraph]] · [[Runtime in LangGraph]] · [[Schemas in LangGraph]] · [[State in LangGraph]] · [[Agents in LangChain]]

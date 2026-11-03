@@ -63,7 +63,12 @@ And the recursion limit? The whole run normally takes 11 graph steps, and a limi
 - **A retry reruns the whole node**, including what it did before it failed. Keep a node that calls a model free of other side effects.
 - **A failed run shows in your traces** as an error on that run: open it to see which guard gave up.
 
-## Related
-[[LangGraph Overview]] · [[Tools in LangGraph]] · [[Schemas in LangGraph]] · [[The agent loop in LangGraph]] · [[Workflow in LangGraph]] · [[Limits in LangChain]]
+## References
+- [LangGraph docs: Fault tolerance (retries)](https://docs.langchain.com/oss/python/langgraph/fault-tolerance)
+- [LangGraph docs: Use the Graph API](https://docs.langchain.com/oss/python/langgraph/use-graph-api)
+- [LangGraph docs: Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api)
+- [LangGraph docs: GRAPH_RECURSION_LIMIT error](https://docs.langchain.com/oss/python/langgraph/errors/GRAPH_RECURSION_LIMIT)
+- [LangChain docs: Tools](https://docs.langchain.com/oss/python/langchain/tools)
 
-## My notes & questions
+## Related
+[[A Brief Overview on LangGraph]] · [[Tools in LangGraph]] · [[Schemas in LangGraph]] · [[The agent loop in LangGraph]] · [[Workflow in LangGraph]] · [[Limits in LangChain]]

@@ -35,7 +35,7 @@ LangChain has no special feature for skills: a skill is just text, and there are
 | -------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
 | **How**              | your code reads the files and appends them to `system_prompt`                              | the agent sees only each skill's name and description, and calls a `load_skill` tool to read the full text |
 | **The model has it** | from the first call                                                                        | only after it asks for it                                                                                  |
-| **Cost**             | turn]]<br>every skill is resent on every [[quartz/content/What is a turn\|What is a turn]] | only the skills it uses                                                                                    |
+| **Cost**             | every skill is resent on every [[Introduction#What is a turn\|turn]] | only the skills it uses                                                                                    |
 | **Good for**         | a few short skills the agent always needs                                                  | many skills, or long ones                                                                                  |
 
 Loading on demand is called **progressive disclosure**: show a short list, load the details only when relevant. A `load_skill` tool is an ordinary tool ([[Tools in LangChain]]):
@@ -80,7 +80,10 @@ Following it, the researcher measures the returns of all funds first, then check
 - **Skills mustn't contradict each other or the role.** They end up in the same conversation, and the model can't tell which one wins.
 - **Describe each skill well.** With loading on demand, the description is all the model sees when deciding whether to load it.
 
-## Related
-[[LangChain Overview]] · [[Agents in LangChain]] · [[Tools in LangChain]] · [[Middleware in LangChain]] · [[What is a turn]]
+## References
+- [LangChain docs: Multi-agent, skills](https://docs.langchain.com/oss/python/langchain/multi-agent/skills)
+- [Claude Help Center: What are skills?](https://support.claude.com/en/articles/12512176-what-are-skills)
+- [LangChain docs: Context engineering](https://docs.langchain.com/oss/python/langchain/context-engineering)
 
-## My notes & questions
+## Related
+[[A Brief Overview on LangChain]] · [[Agents in LangChain]] · [[Tools in LangChain]] · [[Middleware in LangChain]] · [[Introduction]]

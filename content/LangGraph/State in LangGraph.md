@@ -57,7 +57,7 @@ class PortfolioState(TypedDict, total=False):
 ```
 
 The comment on each key says who writes it and who reads it, so the class doubles as a map of the system. The state fills up as the run goes:
-1. the researcher's four [[What is a turn|turns]] add their requests and the tools' results to `messages`, one turn at a time: the reducer appends them. Its last reply also goes into `notes`;
+1. the researcher's four [[Introduction#What is a turn|turns]] add their requests and the tools' results to `messages`, one turn at a time: the reducer appends them. Its last reply also goes into `notes`;
 2. the strategist reads `notes` and writes `proposed_weights`: equity 55%, bond 30%, cash 15%;
 3. the risk check writes `approved_weights` (the same weights) and `risk_review` (equity over the limit);
 4. the rebalance step returns a new `approved_weights`, equity 40%, bond 40%, cash 20%, which **replaces** the old one;
@@ -68,7 +68,9 @@ The comment on each key says who writes it and who reads it, so the class double
 - **A conversation needs its reducer.** Without `add_messages`, each turn would replace the whole conversation with its own new messages.
 - **Keep big data out of `messages`.** Every model call that reads it resends it all.
 
-## Related
-[[LangGraph Overview]] · [[Workflow in LangGraph]] · [[The agent loop in LangGraph]] · [[Agents in LangGraph]] · [[State in LangChain]]
+## References
+- [LangGraph docs: Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api)
+- [LangGraph docs: Use the Graph API](https://docs.langchain.com/oss/python/langgraph/use-graph-api)
 
-## My notes & questions
+## Related
+[[A Brief Overview on LangGraph]] · [[Workflow in LangGraph]] · [[The agent loop in LangGraph]] · [[Agents in LangGraph]] · [[State in LangChain]]

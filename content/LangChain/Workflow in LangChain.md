@@ -72,13 +72,16 @@ final = workflow.invoke({"mandate": Mandate(funds=("equity", "bond", "cash"), ma
 final["approved_weights"]                        # {"equity": 0.40, "bond": 0.40, "cash": 0.20}
 ```
 
-Each node is a small function: it builds its agent's request from the state, runs the agent, and returns the keys it produced (`research_step` is shown in [[State in LangChain]]). For branches, loops or parallel steps, see [[LangChain or LangGraph]].
+Each node is a small function: it builds its agent's request from the state, runs the agent, and returns the keys it produced (`research_step` is shown in [[State in LangChain]]). For branches, loops or parallel steps, see [[Introduction#LangGraph vs LangChain|LangGraph vs LangChain]].
 
 ## Watch out
 - **The steps can't see each other's conversations**, only the state. If the writer must explain why equity was cut, the strategist's step must put it in the state (`risk_review`).
 - **To add an agent:** write its step function (state in, keys out), declare its keys in the state, `add_node` it, and wire it with edges.
 
-## Related
-[[LangChain Overview]] · [[State in LangChain]] · [[Agents in LangChain]] · [[Middleware in LangChain]] · [[LangChain or LangGraph]]
+## References
+- [LangChain docs: Multi-agent, custom workflow](https://docs.langchain.com/oss/python/langchain/multi-agent/custom-workflow)
+- [LangChain docs: Multi-agent, subagents](https://docs.langchain.com/oss/python/langchain/multi-agent/subagents)
+- [LangChain docs: Multi-agent, router](https://docs.langchain.com/oss/python/langchain/multi-agent/router)
 
-## My notes & questions
+## Related
+[[A Brief Overview on LangChain]] · [[State in LangChain]] · [[Agents in LangChain]] · [[Middleware in LangChain]] · [[Introduction]]

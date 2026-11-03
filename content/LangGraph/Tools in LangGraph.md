@@ -14,7 +14,7 @@ updated: 2026-11-03
 
 ## What it is
 
-A model can't run code: it can only *ask* for a tool, and your program runs it and sends the result back ([[What is a tool]]). LangChain's `create_agent` does both halves for you. In LangGraph you do each one yourself, so each has its own line of code: one so the model knows the tool exists, and one so the graph runs it.
+A model can't run code: it can only *ask* for a tool, and your program runs it and sends the result back ([[Introduction#What is a tool|What is a tool]]). LangChain's `create_agent` does both halves for you. In LangGraph you do each one yourself, so each has its own line of code: one so the model knows the tool exists, and one so the graph runs it.
 
 ## Its components
 
@@ -60,14 +60,16 @@ reply = model.bind_tools([get_returns, get_volatility]).invoke(messages)   # in 
 graph.add_node("tools", ToolNode([get_returns, get_volatility]))           # in the graph
 ```
 
-The model's first call asks for `days=500`. The schema rejects it, and the `ToolNode` sends the error back as the result: *"days: Input should be less than or equal to 365 … Please fix the error and try again."*. In the next [[What is a turn|turn]] the model asks for `days=90`, and gets the returns of all three funds without ever naming them: equity +4%, bond +1%, cash +0.5%.
+The model's first call asks for `days=500`. The schema rejects it, and the `ToolNode` sends the error back as the result: *"days: Input should be less than or equal to 365 … Please fix the error and try again."*. In the next [[Introduction#What is a turn|turn]] the model asks for `days=90`, and gets the returns of all three funds without ever naming them: equity +4%, bond +1%, cash +0.5%.
 
 ## Watch out
 - **Bound but not in the `ToolNode`** (or the other way round): the model asks for a tool nobody runs. List each tool in both places.
 - **Errors inside the tool stop the run by default.** If the model could fix it (e.g. "use a longer window"), raise a clear error and set `handle_tool_errors=True` ([[Errors and retries in LangGraph]]).
 - **Calling a tool by hand** fails if it needs a runtime: `ToolNode` fills it in only inside the graph.
 
-## Related
-[[LangGraph Overview]] · [[What is a tool]] · [[Runtime in LangGraph]] · [[The agent loop in LangGraph]] · [[Agents in LangGraph]] · [[Schemas in LangGraph]] · [[Tools in LangChain]]
+## References
+- [LangChain docs: Tools](https://docs.langchain.com/oss/python/langchain/tools)
+- [LangGraph docs: Workflows and agents](https://docs.langchain.com/oss/python/langgraph/workflows-agents)
 
-## My notes & questions
+## Related
+[[A Brief Overview on LangGraph]] · [[Introduction]] · [[Runtime in LangGraph]] · [[The agent loop in LangGraph]] · [[Agents in LangGraph]] · [[Schemas in LangGraph]] · [[Tools in LangChain]]

@@ -20,35 +20,26 @@ updated: 2026-11-03
 ---
 # Introduction
 
-> The choice between **LangChain and LangGraph**, which differ in who writes the agent's loop, and three ideas behind every agent, whatever the library: a **tool** the model can ask for, the **loop** that lets it work in rounds, and the **turn** that is one round of it.
+Welcome to the notes for the ECB × STACKIT hackathon. They explain the ideas and the libraries behind the multi-agent system you'll build on the template.
+
+> [!note] If a diagram doesn't show
+> The diagrams are drawn with Mermaid, and sometimes the browser doesn't render them. Reload the page. If you still see only code, copy it into the free [Mermaid Live Editor](https://mermaid.live).
+
+## What you'll find here
+
+- **The basic concepts**, on this page: what a [[#What is a tool|tool]], the [[#What is a loop|loop]] and a [[#What is a turn|turn]] are, in any framework.
+- **[[#LangGraph vs LangChain|LangGraph vs LangChain]]**, also on this page: how they differ, and how to choose.
+- **LangChain and LangGraph, topic by topic:** start from [[A Brief Overview on LangChain]] or [[A Brief Overview on LangGraph]].
+- **[[Tracing and Langfuse]]:** how to see what your agents did in a run.
+- **[[Hermes coding agent]]:** the coding agent in your workspace.
+
+## The basic concepts
+
+Three ideas are behind every agent, whatever the library: a **tool** the model can ask for, the **loop** that lets it work in rounds, and the **turn** that is one round of it.
 
 All the examples below use the same small system: agents that build a portfolio from three made-up funds (equity, bond and cash), with at most 40% in equity. A **researcher** measures the funds with two tools: `get_returns(days)`, for at most 365 days, and `get_volatility(fund)`. A **strategist** turns its notes into weights, a **risk check** enforces the limit, and a **writer** explains the result.
 
-## LangGraph vs LangChain
-
-> LangChain gives you a ready-made agent: you describe it, it runs the loop. LangGraph gives you the pieces: you draw every step yourself. Pick by how much of the loop you want to control.
-
-Both libraries can build the portfolio system: the researcher's 4 turns, the strategist corrected once, the risk check that fixes the weights. The question is who writes the loop *"call the model → run the tools → call the model again"*: the library, or you. (The tool, the loop and the turn are explained in the sections below.)
-
-| | LangChain (`create_agent`) | LangGraph (`StateGraph`) |
-|---|---|---|
-| **You write** | the agent's parts: model, prompt, tools, answer form, middleware | every step as a node, and the edges between them |
-| **It hides** | the loop: the model and tools steps, when to stop, error handling | nothing: what you don't draw doesn't happen |
-| **Good at** | getting an agent with tools running in a few lines | custom control flow: branches, loops with your own rules, parallel steps |
-| **Your own logic goes** | in middleware, at fixed moments of the loop ([[Hooks in LangChain]]) | in any node, anywhere in the graph |
-| **The risk check** | middleware after the strategist answers | its own node, with a branch after it |
-| **When it's hard** | you need control *between* the loop's fixed moments | you rewrite things LangChain gives for free (retries on a bad answer, limits) |
-
-They aren't rivals: `create_agent` **builds a LangGraph graph**, and a common setup uses both. The workflow (researcher → strategist → writer) is a LangGraph graph, and each step runs a LangChain agent ([[Workflow in LangChain]]).
-
-How to choose:
-- **Start with LangChain** if each step is "an agent that uses some tools and returns an answer". You'll have it running quickly, and middleware covers most custom needs.
-- **Use LangGraph** if the order of steps depends on results (send the strategist back with feedback, run two researchers in parallel), or you want every step visible in the graph.
-- **Mix them** when the overall flow is custom but each step is a normal agent: a LangGraph workflow whose nodes call `create_agent` agents.
-
-References: [LangChain docs: Agents](https://docs.langchain.com/oss/python/langchain/agents) · [LangGraph docs: Overview](https://docs.langchain.com/oss/python/langgraph/overview) · [LangGraph docs: Thinking in LangGraph](https://docs.langchain.com/oss/python/langgraph/thinking-in-langgraph)
-
-## What is a tool
+### What is a tool
 
 > A tool is a function the model can't run but can **ask** you to run. The model writes the request, your code runs the function, and the model reads the result.
 
@@ -110,7 +101,7 @@ Watch out:
 
 References: [Hugging Face Agents Course: What are tools?](https://huggingface.co/learn/agents-course/unit1/tools) · [Hugging Face Agents Course: Actions](https://huggingface.co/learn/agents-course/unit1/actions) · [LangChain docs: Tools](https://docs.langchain.com/oss/python/langchain/tools) · [LangGraph docs: Workflows and agents](https://docs.langchain.com/oss/python/langgraph/workflows-agents)
 
-## What is a loop
+### What is a loop
 
 > The agent loop is the cycle *model decides → program runs the tools → model reads the results*, repeated until the model answers without asking for a tool. It's what turns a single model call into an agent.
 
@@ -149,7 +140,7 @@ Watch out:
 
 References: [Hugging Face Agents Course: the Thought-Action-Observation cycle](https://huggingface.co/learn/agents-course/unit1/agent-steps-and-structure) · [Hugging Face Agents Course: Observations](https://huggingface.co/learn/agents-course/unit1/observations) · [LangChain docs: Agents](https://docs.langchain.com/oss/python/langchain/agents) · [LangGraph docs: Workflows and agents](https://docs.langchain.com/oss/python/langgraph/workflows-agents)
 
-## What is a turn
+### What is a turn
 
 > A turn is one round of the agent loop: **one model call**, plus running the tools that call asked for. A **graph step** is smaller: one of the internal steps a turn is made of.
 
@@ -203,6 +194,30 @@ Watch out:
 - **"Turn" in chat apps** sometimes means one message from one side. In these notes, a turn is always one model call plus its tools.
 
 References: [Hugging Face Agents Course: the Thought-Action-Observation cycle](https://huggingface.co/learn/agents-course/unit1/agent-steps-and-structure) · [LangChain docs: Built-in middleware (model and tool call limits)](https://docs.langchain.com/oss/python/langchain/middleware/built-in) · [LangGraph docs: Graph API (super-steps and the recursion limit)](https://docs.langchain.com/oss/python/langgraph/graph-api)
+
+## LangGraph vs LangChain
+
+> LangChain gives you a ready-made agent: you describe it, it runs the loop. LangGraph gives you the pieces: you draw every step yourself. Pick by how much of the loop you want to control.
+
+Both libraries can build the portfolio system: the researcher's 4 turns, the strategist corrected once, the risk check that fixes the weights. The question is who writes the loop *"call the model → run the tools → call the model again"*: the library, or you. (The tool, the loop and the turn are explained in the sections below.)
+
+| | LangChain (`create_agent`) | LangGraph (`StateGraph`) |
+|---|---|---|
+| **You write** | the agent's parts: model, prompt, tools, answer form, middleware | every step as a node, and the edges between them |
+| **It hides** | the loop: the model and tools steps, when to stop, error handling | nothing: what you don't draw doesn't happen |
+| **Good at** | getting an agent with tools running in a few lines | custom control flow: branches, loops with your own rules, parallel steps |
+| **Your own logic goes** | in middleware, at fixed moments of the loop ([[Hooks in LangChain]]) | in any node, anywhere in the graph |
+| **The risk check** | middleware after the strategist answers | its own node, with a branch after it |
+| **When it's hard** | you need control *between* the loop's fixed moments | you rewrite things LangChain gives for free (retries on a bad answer, limits) |
+
+They aren't rivals: `create_agent` **builds a LangGraph graph**, and a common setup uses both. The workflow (researcher → strategist → writer) is a LangGraph graph, and each step runs a LangChain agent ([[Workflow in LangChain]]).
+
+How to choose:
+- **Start with LangChain** if each step is "an agent that uses some tools and returns an answer". You'll have it running quickly, and middleware covers most custom needs.
+- **Use LangGraph** if the order of steps depends on results (send the strategist back with feedback, run two researchers in parallel), or you want every step visible in the graph.
+- **Mix them** when the overall flow is custom but each step is a normal agent: a LangGraph workflow whose nodes call `create_agent` agents.
+
+References: [LangChain docs: Agents](https://docs.langchain.com/oss/python/langchain/agents) · [LangGraph docs: Overview](https://docs.langchain.com/oss/python/langgraph/overview) · [LangGraph docs: Thinking in LangGraph](https://docs.langchain.com/oss/python/langgraph/thinking-in-langgraph)
 
 ## Where to go from here
 

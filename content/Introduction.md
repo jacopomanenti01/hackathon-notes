@@ -157,7 +157,7 @@ An agent doesn't answer in one go. It works in rounds, like a conversation with 
 1. the model is called once, with the whole conversation so far, and replies;
 2. if the reply asks for tools, they run, and their results are added to the conversation.
 
-Then the next turn starts with the next model call. A reply that asks for no tools is the answer, and that's the **last turn**.
+A reply that requests no tools is the final answer. The turn that produces it is **the last turn**, because nothing further is needed and the loop ends.
 
 The simplest way to count turns is to count **model calls**: one turn, one model call. That's also why turns matter: every turn is a model call that resends the whole conversation, so turns are what an agent is limited by, and paid for.
 

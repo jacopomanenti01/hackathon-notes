@@ -112,7 +112,6 @@ flowchart LR
     R -->|no tool calls| P["strategist"]
 ```
 
-So the four turns are seven node runs, or **graph steps**. And because the loop is in the graph, you can change it: stop on your own condition, or add a node in the middle ([[The agent loop in LangGraph]]).
 
 ### Giving the agent abilities: tools and runtime
 
@@ -245,7 +244,8 @@ So the system needs two things: a step that checks, and a fork after it that pic
 
 **The check is a node with no model in it.** The `risk_check` node is plain Python. It reads `proposed_weights` from the state, makes sure they add up to 100%, compares equity with the 40% limit from the mandate, and writes the result in the state: `approved_weights`, and `risk_review`, which records whether equity was within the limit.
 
-**The fork is a branch.** A **branch** is a conditional edge after a node: instead of always going to the same next node, it calls a small function, the **router**, which reads the state and returns the *name* of the node to run next:
+**The fork is a branch.** A **branch** is a conditional edge after a node: instead of always going to the same next node, it calls a small function, the **router**, which reads the state and returns the _name_ of the node to run next:
+
 
 ```python
 def after_check(state: PortfolioState) -> Literal["writer", "rebalance"]:
@@ -255,7 +255,7 @@ graph.add_conditional_edges("risk_check", after_check, ["writer", "rebalance"])
 graph.add_edge("rebalance", "writer")
 ```
 
-The router only decides: it doesn't change anything in the state. The fix is done by its own node, `rebalance`, which caps equity at the limit and shares the rest among the other funds, in the same proportions as before.
+The router only decides: it doesn’t change anything in the state. The fix is done by a separate node, `rebalance`, which caps equity at the limit and shares the rest among the other funds, in the same proportions as before.
 
 In the example, this is how it goes:
 1. `risk_check` finds equity at 55%, over the 40% limit, and records it in `risk_review`;
@@ -286,7 +286,7 @@ The right guard depends on who can fix the problem.
 - the researcher's 500-day request was a **bad tool call**: the `ToolNode` sent the error back as the tool's result, and the model asked for 90 days. By default it does this only for bad arguments; if the tool itself raises an error the model could fix (say, *"no prices for that window, use a longer one"*), turn it on with `ToolNode(..., handle_tool_errors=True)`;
 - the strategist's missing cash was an **invalid answer**: its node sent the check's error back, and the model answered again.
 
-**Nobody can fix it but time: run the step again.** A timeout or a server error isn't the model's mistake, so sending it a message won't help. Instead, you give the node a **retry policy**: if the node raises, LangGraph waits a little, then runs the whole node again, up to a maximum number of attempts:
+**Nobody can fix it but time: run the step again.** A timeout or a server error isn't the model's mistake, so sending it a message won't help. Instead, you give the node a **retry policy**: if the node raises that type of error, LangGraph waits a little, then runs the whole node again, up to a maximum number of attempts:
 
 ```python
 graph.add_node("strategist", strategist, retry_policy=RetryPolicy(max_attempts=3))
